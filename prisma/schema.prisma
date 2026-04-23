@@ -1,0 +1,488 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum BusinessType {
+  OFICINA
+  RESTAURANTE
+  ACADEMIA
+  GENERICO
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  ADMIN
+  EMPLOYEE
+  USER
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum ServiceStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum ServiceType {
+  ORCAMENTO // Orçamento aguardando aprovação
+  ORDEM_SERVICO // Ordem de serviço aprovada
+}
+
+enum MechanicStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+enum VehicleType {
+  CARRO
+  MOTO
+  CAMINHAO
+  OUTRO
+}
+
+enum ServiceItemType {
+  LABOR // Mão de obra
+  PART // Peça
+}
+
+enum TransactionType {
+  RECEITA
+  DESPESA
+}
+
+enum PaymentMethod {
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  PIX
+  BOLETO
+  TRANSFERENCIA
+  OUTRO
+}
+
+enum ThirdPartyServiceStatus {
+  PENDENTE // Aguardando envio
+  ENVIADO // Enviado ao terceirizado
+  EM_EXECUCAO // Sendo executado
+  CONCLUIDO // Concluído
+  RETORNADO // Retornou para oficina
+}
+
+// ============================================
+// MODELS PRINCIPAIS
+// ============================================
+
+model Tenant {
+  id           String       @id @default(cuid())
+  name         String
+  slug         String       @unique
+  businessType BusinessType
+  status       TenantStatus @default(TRIAL)
+  logo         String?
+  domain       String?      @unique
+  maxUsers     Int          @default(5)
+  maxCustomers Int          @default(100)
+  modules      Json?
+  trialEndsAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  users               User[]
+  customers           Customer[]
+  services            Service[]
+  products            Product[]
+  categories          Category[]
+  plans               Plan[]
+  settings            Setting?
+  activities          Activity[]
+  vehicles            Vehicle[]
+  mechanics           Mechanic[]
+  transactions        Transaction[]
+  thirdPartyProviders ThirdPartyProvider[]
+  stockMovements      StockMovement[]
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  role        UserRole
+  avatar      String?
+  tenantId    String?
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  services       Service[]
+  activities     Activity[]
+  transactions   Transaction[]
+  stockMovements StockMovement[]
+
+  @@index([tenantId])
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String
+  cpf       String?
+  address   String?
+  notes     String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services          Service[]
+  planSubscriptions PlanSubscription[]
+  vehicles          Vehicle[]
+
+  @@index([tenantId])
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  products Product[]
+  services Service[]
+
+  @@index([tenantId])
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  sku         String?
+  barcode     String?
+  costPrice   Float?    @default(0)
+  price       Float
+  stock       Int       @default(0)
+  minStock    Int?      @default(0)
+  maxStock    Int?
+  location    String?
+  supplier    String? // Fornecedor
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  serviceItems   ServiceItem[]
+  stockMovements StockMovement[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@index([sku])
+}
+
+// ============================================
+// CONTROLE DE ESTOQUE
+// ============================================
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  type      String // ENTRADA, SAIDA, AJUSTE, DEVOLUCAO
+  quantity  Int
+  reason    String // Motivo da movimentação
+  reference String? // Referência (ex: OS #123, NF 456)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+// ============================================
+// SERVIÇOS E ORÇAMENTOS
+// ============================================
+
+model Service {
+  id            String        @id @default(cuid())
+  type          ServiceType   @default(ORDEM_SERVICO) // NOVO!
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id])
+  categoryId    String?
+  category      Category?     @relation(fields: [categoryId], references: [id])
+  vehicleId     String?
+  vehicle       Vehicle?      @relation(fields: [vehicleId], references: [id])
+  status        ServiceStatus @default(PENDENTE)
+  description   String
+  scheduledDate DateTime?
+  completedDate DateTime?
+  approvedAt    DateTime? // NOVO! Data de aprovação do orçamento
+  expiresAt     DateTime? // NOVO! Validade do orçamento
+  totalValue    Float         @default(0)
+  discount      Float?        @default(0)
+  notes         String?
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items              ServiceItem[]
+  serviceMechanics   ServiceMechanic[] // NOVO! Múltiplos mecânicos
+  thirdPartyServices ThirdPartyService[] // NOVO! Serviços terceirizados
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([type])
+}
+
+model ServiceItem {
+  id          String          @id @default(cuid())
+  serviceId   String
+  service     Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id])
+  type        ServiceItemType @default(PART)
+  description String
+  quantity    Int             @default(1)
+  unitPrice   Float
+  totalPrice  Float
+
+  @@index([serviceId])
+  @@index([productId])
+}
+
+// ============================================
+// MÚLTIPLOS MECÂNICOS POR SERVIÇO
+// ============================================
+
+model ServiceMechanic {
+  id          String   @id @default(cuid())
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  mechanicId  String
+  mechanic    Mechanic @relation(fields: [mechanicId], references: [id])
+  hoursWorked Float?   @default(0)
+  commission  Float?   @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([serviceId])
+  @@index([mechanicId])
+}
+
+// ============================================
+// SERVIÇOS TERCEIRIZADOS
+// ============================================
+
+model ThirdPartyProvider {
+  id        String   @id @default(cuid())
+  name      String
+  type      String // RETIFICA, PINTURA, ESTOFAMENTO, etc
+  contact   String?
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services ThirdPartyService[]
+
+  @@index([tenantId])
+}
+
+model ThirdPartyService {
+  id           String                  @id @default(cuid())
+  serviceId    String
+  service      Service                 @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  providerId   String
+  provider     ThirdPartyProvider      @relation(fields: [providerId], references: [id])
+  description  String
+  status       ThirdPartyServiceStatus @default(PENDENTE)
+  sentAt       DateTime?
+  returnedAt   DateTime?
+  cost         Float // Quanto a oficina pagou ao terceirizado
+  markup       Float?                  @default(0) // Margem da oficina (%)
+  chargedValue Float? // Quanto foi cobrado do cliente (cost + markup)
+  notes        String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([serviceId])
+  @@index([providerId])
+  @@index([status])
+}
+
+// ============================================
+// FINANCEIRO
+// ============================================
+
+model Transaction {
+  id            String          @id @default(cuid())
+  type          TransactionType
+  category      String // SERVICO, PECA, SALARIO, ALUGUEL, etc
+  description   String
+  amount        Float
+  date          DateTime        @default(now())
+  dueDate       DateTime? // Vencimento (se for a receber/pagar)
+  isPaid        Boolean         @default(false)
+  paidAt        DateTime?
+  paymentMethod PaymentMethod?
+  serviceId     String? // Vinculado a uma OS (se for receita de serviço)
+  reference     String? // Referência externa (NF, boleto, etc)
+  notes         String?
+  userId        String?
+  user          User?           @relation(fields: [userId], references: [id])
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([date])
+  @@index([isPaid])
+  @@index([serviceId])
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  duration    Int
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions PlanSubscription[]
+
+  @@index([tenantId])
+}
+
+model PlanSubscription {
+  id         String   @id @default(cuid())
+  planId     String
+  plan       Plan     @relation(fields: [planId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([planId])
+}
+
+model Setting {
+  id           String @id @default(cuid())
+  tenantId     String @unique
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryColor String @default("#000000")
+  currency     String @default("BRL")
+  timezone     String @default("America/Sao_Paulo")
+  customFields Json?
+}
+
+// ============================================
+// MODELS ESPECÍFICOS DE OFICINA
+// ============================================
+
+model Vehicle {
+  id             String      @id @default(cuid())
+  plate          String
+  brand          String
+  model          String
+  year           Int
+  color          String?
+  chassis        String?
+  renavam        String?
+  km             Int?
+  category       VehicleType @default(CARRO)
+  specifications Json? // Para salvar eixos, cilindradas, tração, etc.
+
+  notes      String?
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  services Service[]
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([plate])
+}
+
+model Mechanic {
+  id             String         @id @default(cuid())
+  name           String
+  cpf            String?
+  phone          String?
+  email          String?
+  specialty      String?
+  commissionRate Float?         @default(0)
+  status         MechanicStatus @default(ACTIVE)
+  notes          String?
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  serviceMechanics ServiceMechanic[]
+
+  @@index([tenantId])
+}
