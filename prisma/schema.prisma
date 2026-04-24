@@ -98,6 +98,8 @@ model Tenant {
   slug         String       @unique
   businessType BusinessType
   status       TenantStatus @default(TRIAL)
+  phone        String?
+  address      String?
   logo         String?
   domain       String?      @unique
   maxUsers     Int          @default(5)
@@ -134,6 +136,7 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
+  permissions Json?
 
   services       Service[]
   activities     Activity[]
@@ -426,13 +429,41 @@ model PlanSubscription {
 }
 
 model Setting {
-  id           String @id @default(cuid())
-  tenantId     String @unique
-  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  primaryColor String @default("#000000")
-  currency     String @default("BRL")
-  timezone     String @default("America/Sao_Paulo")
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Aparência
+  primaryColor String  @default("#3b82f6")
+  logoUrl      String?
+  faviconUrl   String?
+
+  // Temas
+  theme String @default("light") // light, dark, system
+
+  // Localização
+  currency String @default("BRL")
+  timezone String @default("America/Sao_Paulo")
+  language String @default("pt-BR")
+
+  // Notificações
+  emailNotifications    Boolean @default(true)
+  lowStockAlert         Boolean @default(true)
+  serviceCompletedAlert Boolean @default(true)
+
+  // Segurança
+  passwordMinLength Int     @default(6)
+  sessionTimeout    Int     @default(480) // minutos (8 horas)
+  twoFactorEnabled  Boolean @default(false)
+
+  // Módulos ativos
+  modulesEnabled Json?
+
+  // Metadados
   customFields Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================

@@ -1,13 +1,13 @@
 // components/providers/session-provider.tsx
 'use client'
 
-import { SessionProvider } from 'next-auth/react'
-import { ReactNode } from 'react'
+import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react'
+import { QueryProvider } from './query-provider'
 
-interface ProvidersProps {
-    children: ReactNode
-}
-
-export function Providers({ children }: ProvidersProps) {
-    return <SessionProvider>{children}</SessionProvider>
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <NextAuthSessionProvider>
+      <QueryProvider>{children}</QueryProvider>
+    </NextAuthSessionProvider>
+  )
 }
