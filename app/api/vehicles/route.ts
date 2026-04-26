@@ -13,20 +13,16 @@ import { createVehicleSchema, listVehiclesQuerySchema } from '@/schemas'
  * Lista veículos do tenant com paginação e busca
  */
 export const GET = withErrorHandling(async (req: NextRequest) => {
-    const { error, tenantId, session } = await getTenantSession()
-    if (error) return error
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'vehicles' })
+  if (error) return error
 
-    // Validar query params
-    const query = validateQueryParams(req, listVehiclesQuerySchema)
+  // Validar query params
+  const query = validateQueryParams(req, listVehiclesQuerySchema)
 
-    // Buscar veículos com paginação
-    const result = await VehicleService.listByTenant(
-        tenantId!,
-        query,
-        session?.user.id
-    )
+  // Buscar veículos com paginação
+  const result = await VehicleService.listByTenant(tenantId!, query, session?.user.id)
 
-    return ApiResponse.success(result)
+  return ApiResponse.success(result)
 })
 
 /**
@@ -34,18 +30,14 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
  * Cria novo veículo com validação Zod
  */
 export const POST = withErrorHandling(async (req: NextRequest) => {
-    const { error, tenantId, session } = await getTenantSession()
-    if (error) return error
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'vehicles' })
+  if (error) return error
 
-    // Validar body com Zod schema
-    const data = await validateRequestBody(req, createVehicleSchema)
+  // Validar body com Zod schema
+  const data = await validateRequestBody(req, createVehicleSchema)
 
-    // Criar veículo
-    const vehicle = await VehicleService.create(
-        data,
-        tenantId!,
-        session!.user.id
-    )
+  // Criar veículo
+  const vehicle = await VehicleService.create(data, tenantId!, session!.user.id)
 
-    return ApiResponse.success(vehicle, 201)
+  return ApiResponse.success(vehicle, 201)
 })

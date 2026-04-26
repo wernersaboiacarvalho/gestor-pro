@@ -8,56 +8,56 @@ import { ERROR_CODES } from '@/lib/errors/error-codes'
 
 // GET /api/third-party-providers - Listar todos os parceiros
 export const GET = withErrorHandling(async () => {
-    const { error, tenantId, session } = await getTenantSession()
-    if (error) return error
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'third_party' })
+  if (error) return error
 
-    const providers = await ThirdPartyProviderService.listByTenant(tenantId!, session?.user?.id)
+  const providers = await ThirdPartyProviderService.listByTenant(tenantId!, session?.user?.id)
 
-    return NextResponse.json({
-        success: true,
-        data: {
-            providers,
-            count: providers.length,
-        },
-    })
+  return NextResponse.json({
+    success: true,
+    data: {
+      providers,
+      count: providers.length,
+    },
+  })
 })
 
 // POST /api/third-party-providers - Criar novo parceiro
 export const POST = withErrorHandling(async (request: Request) => {
-    const { error, tenantId, session } = await getTenantSession()
-    if (error) return error
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'third_party' })
+  if (error) return error
 
-    const body = await request.json()
+  const body = await request.json()
 
-    const { name, type, contact, phone, email, address, notes } = body
+  const { name, type, contact, phone, email, address, notes } = body
 
-    if (!name || !type) {
-        throw new AppError({
-            code: ERROR_CODES.INVALID_REQUEST,
-            message: 'Nome e tipo são obrigatórios',
-            statusCode: 400,
-        })
-    }
+  if (!name || !type) {
+    throw new AppError({
+      code: ERROR_CODES.INVALID_REQUEST,
+      message: 'Nome e tipo são obrigatórios',
+      statusCode: 400,
+    })
+  }
 
-    const provider = await ThirdPartyProviderService.create(
-        {
-            name,
-            type,
-            contact: contact ?? null,
-            phone: phone ?? null,
-            email: email ?? null,
-            address: address ?? null,
-            notes: notes ?? null,
-        },
-        tenantId!,
-        session!.user.id
-    )
+  const provider = await ThirdPartyProviderService.create(
+    {
+      name,
+      type,
+      contact: contact ?? null,
+      phone: phone ?? null,
+      email: email ?? null,
+      address: address ?? null,
+      notes: notes ?? null,
+    },
+    tenantId!,
+    session!.user.id
+  )
 
-    return NextResponse.json(
-        {
-            success: true,
-            data: { provider },
-        },
-        { status: 201 }
-    )
+  return NextResponse.json(
+    {
+      success: true,
+      data: { provider },
+    },
+    { status: 201 }
+  )
 })

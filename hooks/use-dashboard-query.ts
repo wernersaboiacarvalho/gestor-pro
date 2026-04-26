@@ -4,6 +4,36 @@
 import { useQuery } from '@tanstack/react-query'
 
 interface DashboardStats {
+  onboarding: {
+    title: string
+    show: boolean
+    completed: number
+    total: number
+    progress: number
+    nextStep: {
+      id: string
+      title: string
+      description: string
+      href: string
+      cta: string
+    } | null
+    quickActions: Array<{
+      id: string
+      label: string
+      description: string
+      endpoint: string
+      method: 'POST'
+    }>
+    steps: Array<{
+      id: string
+      title: string
+      description: string
+      href: string
+      cta: string
+      completed: boolean
+      optional?: boolean
+    }>
+  }
   kpis: {
     totalCustomers: number
     totalVehicles: number

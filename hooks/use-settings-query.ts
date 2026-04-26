@@ -14,9 +14,12 @@ export function useSettings() {
   return useQuery({
     queryKey: [SETTINGS_KEY],
     queryFn: () =>
-      api.get<{ tenant: Record<string, unknown>; settings: Record<string, unknown> }>(
-        '/api/settings'
-      ),
+      api.get<{
+        tenant: Record<string, unknown>
+        settings: Record<string, unknown>
+        resolvedModules: Record<string, boolean> | null
+        template: Record<string, unknown> | null
+      }>('/api/settings'),
   })
 }
 

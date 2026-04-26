@@ -5,72 +5,81 @@ import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 
 export const authOptions: NextAuthOptions = {
-    providers: [
-        CredentialsProvider({
-            name: 'Credentials',
-            credentials: {
-                email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" }
-            },
-            async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    return null
-                }
-
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
-                    include: { tenant: true }
-                })
-
-                if (!user) {
-                    return null
-                }
-
-                const isValidPassword = await bcrypt.compare(
-                    credentials.password,
-                    user.password
-                )
-
-                if (!isValidPassword) {
-                    return null
-                }
-
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                    tenantId: user.tenantId,
-                    tenantSlug: user.tenant?.slug || null,
-                }
-            }
-        })
-    ],
-    callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.id = user.id
-                token.role = user.role
-                token.tenantId = user.tenantId
-                token.tenantSlug = user.tenantSlug
-            }
-            return token
-        },
-        async session({ session, token }) {
-            if (session.user) {
-                session.user.id = token.id as string
-                session.user.role = token.role as string
-                session.user.tenantId = token.tenantId as string | null
-                session.user.tenantSlug = token.tenantSlug as string | null
-            }
-            return session
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
         }
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+          include: { tenant: true },
+        })
+
+        if (!user) {
+          return null
+        }
+
+        const isValidPassword = await bcrypt.compare(credentials.password, user.password)
+
+        if (!isValidPassword) {
+          return null
+        }
+
+        const permissions = Array.isArray(user.permissions)
+          ? user.permissions.filter(
+              (permission): permission is string => typeof permission === 'string'
+            )
+          : []
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId,
+          tenantSlug: user.tenant?.slug || null,
+          businessType: user.tenant?.businessType || null,
+          permissions,
+        }
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.role = user.role
+        token.tenantId = user.tenantId
+        token.tenantSlug = user.tenantSlug
+        token.businessType = user.businessType
+        token.permissions = user.permissions
+      }
+      return token
     },
-    pages: {
-        signIn: '/login',
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.role = token.role as string
+        session.user.tenantId = token.tenantId as string | null
+        session.user.tenantSlug = token.tenantSlug as string | null
+        session.user.businessType = token.businessType as string | null
+        session.user.permissions = (token.permissions as string[] | undefined) ?? []
+      }
+      return session
     },
-    session: {
-        strategy: 'jwt',
-    },
-    secret: process.env.NEXTAUTH_SECRET,
+  },
+  pages: {
+    signIn: '/login',
+  },
+  session: {
+    strategy: 'jwt',
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 }

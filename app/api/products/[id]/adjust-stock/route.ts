@@ -9,28 +9,28 @@ import { validateRequestBody } from '@/lib/http/validate-request'
 import { adjustStockSchema, type AdjustStockInput } from '@/schemas/product.schema'
 
 interface RouteParams {
-    params: Promise<{ id: string }>
+  params: Promise<{ id: string }>
 }
 
 // ============================================
 // POST /api/products/[id]/adjust-stock - Ajustar estoque
 // ============================================
 export const POST = withErrorHandling(async (req: NextRequest, { params }: RouteParams) => {
-    const { error, tenantId, session } = await getTenantSession()
-    if (error) return error
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'products' })
+  if (error) return error
 
-    const { id } = await params
-    const data = await validateRequestBody(req, adjustStockSchema) as AdjustStockInput
+  const { id } = await params
+  const data = (await validateRequestBody(req, adjustStockSchema)) as AdjustStockInput
 
-    const result = await ProductService.adjustStock(
-        id,
-        data.quantity,
-        data.type,
-        data.reason,
-        tenantId!,
-        session!.user.id,
-        data.reference || undefined
-    )
+  const result = await ProductService.adjustStock(
+    id,
+    data.quantity,
+    data.type,
+    data.reason,
+    tenantId!,
+    session!.user.id,
+    data.reference || undefined
+  )
 
-    return ApiResponse.success(result)
+  return ApiResponse.success(result)
 })

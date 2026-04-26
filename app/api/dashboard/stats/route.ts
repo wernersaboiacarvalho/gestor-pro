@@ -1,185 +1,305 @@
-// app/api/dashboard/stats/route.ts
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getTenantSession } from '@/lib/tenant-guard'
 
 export async function GET() {
-    const session = await getServerSession(authOptions)
+  const { error, tenantId, tenant, modules } = await getTenantSession({
+    requiredModule: 'dashboard',
+  })
+  if (error) {
+    return error
+  }
 
-    if (!session?.user?.tenantId) {
-        return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }, { status: 401 })
-    }
+  const scopedTenantId = tenantId!
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
 
-    const tenantId = session.user.tenantId
-
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-
-    // Queries paralelas
-    const [
-        totalCustomers,
-        totalVehicles,
-        totalProducts,
-        activeServices,
-        completedServicesThisMonth,
-        completedServicesLastMonth,
-        lowStockProducts,
-        recentServices,
-        recentActivities,
-        servicesByStatus,
-        revenueByMonth,
-    ] = await Promise.all([
-        // KPIs básicos
-        prisma.customer.count({ where: { tenantId } }),
-        prisma.vehicle.count({ where: { tenantId } }),
-        prisma.product.count({ where: { tenantId } }),
-        prisma.service.count({ where: { tenantId, status: { in: ['PENDENTE', 'EM_ANDAMENTO'] } } }),
-
-        // Faturamento mês atual vs anterior
-        prisma.service.aggregate({
-            where: { tenantId, status: 'CONCLUIDO', completedDate: { gte: startOfMonth } },
-            _sum: { totalValue: true },
-            _count: true,
-        }),
-        prisma.service.aggregate({
-            where: { tenantId, status: 'CONCLUIDO', completedDate: { gte: startOfLastMonth, lte: endOfLastMonth } },
-            _sum: { totalValue: true },
-            _count: true,
-        }),
-
-        // Estoque baixo
-        prisma.product.count({
-            where: { tenantId, stock: { lte: prisma.product.fields.minStock } }
-        }).catch(() =>
-            // fallback: conta onde stock <= minStock usando raw approach
-            prisma.$queryRaw<[{ count: bigint }]>`
-                SELECT COUNT(*) as count FROM "Product"
-                WHERE "tenantId" = ${tenantId}
-                AND "minStock" IS NOT NULL
-                AND stock <= "minStock"
-            `.then(r => Number(r[0].count))
-        ),
-
-        // Últimos 5 serviços
-        prisma.service.findMany({
-            where: { tenantId },
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-            include: {
-                customer: { select: { name: true } },
-                vehicle: { select: { plate: true, brand: true, model: true } },
-            },
-        }),
-
-        // Últimas 5 atividades
-        prisma.activity.findMany({
-            where: { tenantId },
-            orderBy: { createdAt: 'desc' },
-            take: 5,
-            include: { user: { select: { name: true } } },
-        }),
-
-        // Serviços agrupados por status (para gráfico pizza)
-        prisma.service.groupBy({
-            by: ['status'],
-            where: { tenantId },
-            _count: true,
-        }),
-
-        // Faturamento dos últimos 6 meses (para gráfico de barras)
-        prisma.$queryRaw<Array<{ month: string; revenue: number; count: bigint }>>`
+  const [
+    totalCustomers,
+    totalVehicles,
+    totalProducts,
+    totalMechanics,
+    totalCategories,
+    tenantUsers,
+    activeServices,
+    completedServicesThisMonth,
+    completedServicesLastMonth,
+    lowStockProducts,
+    recentServices,
+    recentActivities,
+    servicesByStatus,
+    revenueByMonth,
+  ] = await Promise.all([
+    prisma.customer.count({ where: { tenantId: scopedTenantId } }),
+    prisma.vehicle.count({ where: { tenantId: scopedTenantId } }),
+    prisma.product.count({ where: { tenantId: scopedTenantId } }),
+    prisma.mechanic.count({ where: { tenantId: scopedTenantId, status: 'ACTIVE' } }),
+    prisma.category.count({ where: { tenantId: scopedTenantId } }),
+    prisma.user.count({ where: { tenantId: scopedTenantId, role: { not: 'SUPER_ADMIN' } } }),
+    prisma.service.count({
+      where: { tenantId: scopedTenantId, status: { in: ['PENDENTE', 'EM_ANDAMENTO'] } },
+    }),
+    prisma.service.aggregate({
+      where: {
+        tenantId: scopedTenantId,
+        status: 'CONCLUIDO',
+        completedDate: { gte: startOfMonth },
+      },
+      _sum: { totalValue: true },
+      _count: true,
+    }),
+    prisma.service.aggregate({
+      where: {
+        tenantId: scopedTenantId,
+        status: 'CONCLUIDO',
+        completedDate: { gte: startOfLastMonth, lte: endOfLastMonth },
+      },
+      _sum: { totalValue: true },
+      _count: true,
+    }),
+    prisma.product
+      .count({
+        where: { tenantId: scopedTenantId, stock: { lte: prisma.product.fields.minStock } },
+      })
+      .catch(() =>
+        prisma.$queryRaw<[{ count: bigint }]>`
+                    SELECT COUNT(*) as count FROM "Product"
+                    WHERE "tenantId" = ${scopedTenantId}
+                    AND "minStock" IS NOT NULL
+                    AND stock <= "minStock"
+                `.then((rows) => Number(rows[0].count))
+      ),
+    prisma.service.findMany({
+      where: { tenantId: scopedTenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: {
+        customer: { select: { name: true } },
+        vehicle: { select: { plate: true, brand: true, model: true } },
+      },
+    }),
+    prisma.activity.findMany({
+      where: { tenantId: scopedTenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: { user: { select: { name: true } } },
+    }),
+    prisma.service.groupBy({
+      by: ['status'],
+      where: { tenantId: scopedTenantId },
+      _count: true,
+    }),
+    prisma.$queryRaw<Array<{ month: string; revenue: number; count: bigint }>>`
             SELECT
                 TO_CHAR("completedDate", 'YYYY-MM') as month,
                 COALESCE(SUM("totalValue"), 0)::float as revenue,
                 COUNT(*) as count
             FROM "Service"
-            WHERE "tenantId" = ${tenantId}
+            WHERE "tenantId" = ${scopedTenantId}
                 AND status = 'CONCLUIDO'
                 AND "completedDate" >= ${new Date(now.getFullYear(), now.getMonth() - 5, 1)}
             GROUP BY TO_CHAR("completedDate", 'YYYY-MM')
             ORDER BY month ASC
         `,
-    ])
+  ] as const)
 
-    // Calcular variação de receita mês a mês
-    const revenueThisMonth = completedServicesThisMonth._sum.totalValue ?? 0
-    const revenueLastMonth = completedServicesLastMonth._sum.totalValue ?? 0
-    const revenueGrowth = revenueLastMonth > 0
-        ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100
-        : 0
+  const revenueThisMonth = completedServicesThisMonth._sum?.totalValue ?? 0
+  const revenueLastMonth = completedServicesLastMonth._sum?.totalValue ?? 0
+  const revenueGrowth =
+    revenueLastMonth > 0 ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100 : 0
 
-    // Formatar dados dos gráficos
-    const statusLabels: Record<string, string> = {
-        PENDENTE: 'Pendente',
-        EM_ANDAMENTO: 'Em Andamento',
-        CONCLUIDO: 'Concluído',
-        CANCELADO: 'Cancelado',
+  const statusLabels: Record<string, string> = {
+    PENDENTE: 'Pendente',
+    EM_ANDAMENTO: 'Em Andamento',
+    CONCLUIDO: 'Concluido',
+    CANCELADO: 'Cancelado',
+  }
+
+  const statusColors: Record<string, string> = {
+    PENDENTE: '#f59e0b',
+    EM_ANDAMENTO: '#3b82f6',
+    CONCLUIDO: '#10b981',
+    CANCELADO: '#ef4444',
+  }
+
+  const servicesChartData = servicesByStatus.map((service) => ({
+    name: statusLabels[service.status] ?? service.status,
+    value: service._count,
+    color: statusColors[service.status] ?? '#6b7280',
+  }))
+
+  const monthNames = [
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
+  ]
+  const revenueChartData = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const found = revenueByMonth.find((entry) => entry.month === key)
+
+    return {
+      month: monthNames[date.getMonth()],
+      revenue: found ? Number(found.revenue) : 0,
+      count: found ? Number(found.count) : 0,
     }
+  })
 
-    const statusColors: Record<string, string> = {
-        PENDENTE: '#f59e0b',
-        EM_ANDAMENTO: '#3b82f6',
-        CONCLUIDO: '#10b981',
-        CANCELADO: '#ef4444',
-    }
+  const onboardingSteps = [
+    {
+      id: 'company',
+      title: tenant?.businessType === 'OFICINA' ? 'Dados da oficina' : 'Dados da empresa',
+      description:
+        'Nome, telefone e endereco precisam estar preenchidos para documentos e atendimento.',
+      href: '/dashboard/settings?tab=company',
+      cta: 'Completar empresa',
+      completed: Boolean(tenant?.name && tenant?.slug && tenant?.phone && tenant?.address),
+    },
+    {
+      id: 'team',
+      title: 'Equipe de acesso',
+      description: 'Tenha pelo menos um usuario operacional alem do proprietario.',
+      href: '/dashboard/settings?tab=employees',
+      cta: 'Convidar equipe',
+      completed: tenantUsers >= 2,
+    },
+    {
+      id: 'categories',
+      title: 'Categorias de servico',
+      description: 'Categorias ajudam a organizar OS, relatorios e tipos de manutencao.',
+      href: '/dashboard/services',
+      cta: 'Revisar servicos',
+      completed: !modules?.services || totalCategories > 0,
+    },
+    {
+      id: 'mechanics',
+      title: 'Mecanicos',
+      description: 'Cadastre quem executa os servicos para acompanhar produtividade e comissoes.',
+      href: '/dashboard/oficina/mecanicos',
+      cta: 'Cadastrar mecanico',
+      completed: !modules?.mechanics || totalMechanics > 0,
+    },
+    {
+      id: 'customers',
+      title: 'Primeiro cliente',
+      description: 'O primeiro cliente libera o cadastro de veiculo e a primeira OS.',
+      href: '/dashboard/customers',
+      cta: 'Cadastrar cliente',
+      completed: !modules?.customers || totalCustomers > 0,
+    },
+    {
+      id: 'vehicles',
+      title: 'Primeiro veiculo',
+      description: 'Veiculos conectam cliente, historico e ordens de servico da oficina.',
+      href: '/dashboard/oficina/veiculos',
+      cta: 'Cadastrar veiculo',
+      completed: !modules?.vehicles || totalVehicles > 0,
+    },
+    {
+      id: 'products',
+      title: 'Estoque inicial',
+      description:
+        'Inclua pecas ou materiais recorrentes para controlar estoque desde a primeira OS.',
+      href: '/dashboard/products',
+      cta: 'Adicionar produto',
+      completed: !modules?.products || totalProducts > 0,
+      optional: true,
+    },
+    {
+      id: 'service',
+      title: 'Primeira OS',
+      description: 'Crie uma ordem de servico para validar o fluxo operacional completo.',
+      href: '/dashboard/services',
+      cta: 'Criar OS',
+      completed: !modules?.services || activeServices > 0 || completedServicesThisMonth._count > 0,
+    },
+  ]
 
-    const servicesChartData = servicesByStatus.map(s => ({
-        name: statusLabels[s.status] ?? s.status,
-        value: s._count,
-        color: statusColors[s.status] ?? '#6b7280',
-    }))
+  const visibleOnboardingSteps = onboardingSteps.filter((step) => {
+    if (step.id === 'mechanics') return Boolean(modules?.mechanics)
+    if (step.id === 'vehicles') return Boolean(modules?.vehicles)
+    if (step.id === 'products') return Boolean(modules?.products)
+    if (step.id === 'service' || step.id === 'categories') return Boolean(modules?.services)
+    if (step.id === 'customers') return Boolean(modules?.customers)
+    return true
+  })
+  const requiredSteps = visibleOnboardingSteps.filter((step) => !step.optional)
+  const completedRequired = requiredSteps.filter((step) => step.completed).length
+  const onboardingProgress = Math.round((completedRequired / requiredSteps.length) * 100)
+  const nextOnboardingStep =
+    visibleOnboardingSteps.find((step) => !step.completed && !step.optional) ?? null
+  const quickActions =
+    tenant?.businessType === 'OFICINA' &&
+    (totalCategories === 0 || (Boolean(modules?.products) && totalProducts === 0))
+      ? [
+          {
+            id: 'workshop-starter',
+            label: 'Instalar base da oficina',
+            description:
+              'Cria categorias operacionais e itens iniciais de estoque com quantidade zero.',
+            endpoint: '/api/onboarding/workshop-starter',
+            method: 'POST' as const,
+          },
+        ]
+      : []
 
-    // Preencher meses sem dados nos últimos 6 meses
-    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    const revenueChartData = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        const found = revenueByMonth.find(r => r.month === key)
-        return {
-            month: monthNames[d.getMonth()],
-            revenue: found ? Number(found.revenue) : 0,
-            count: found ? Number(found.count) : 0,
-        }
-    })
-
-    return NextResponse.json({
-        success: true,
-        data: {
-            kpis: {
-                totalCustomers,
-                totalVehicles,
-                totalProducts,
-                activeServices,
-                revenueThisMonth,
-                revenueLastMonth,
-                revenueGrowth: Math.round(revenueGrowth * 10) / 10,
-                completedThisMonth: completedServicesThisMonth._count,
-                lowStockProducts: typeof lowStockProducts === 'number' ? lowStockProducts : 0,
-            },
-            charts: {
-                servicesByStatus: servicesChartData,
-                revenueByMonth: revenueChartData,
-            },
-            recentServices: recentServices.map(s => ({
-                id: s.id,
-                description: s.description,
-                status: s.status,
-                type: s.type,
-                totalValue: s.totalValue,
-                createdAt: s.createdAt,
-                customer: s.customer,
-                vehicle: s.vehicle,
-            })),
-            recentActivities: recentActivities.map(a => ({
-                id: a.id,
-                action: a.action,
-                description: a.description,
-                createdAt: a.createdAt,
-                user: a.user,
-            })),
-        },
-    })
+  return NextResponse.json({
+    success: true,
+    data: {
+      onboarding: {
+        title:
+          tenant?.businessType === 'OFICINA' ? 'Onboarding da oficina' : 'Onboarding do negocio',
+        show: onboardingProgress < 100,
+        completed: completedRequired,
+        total: requiredSteps.length,
+        progress: onboardingProgress,
+        nextStep: nextOnboardingStep,
+        quickActions,
+        steps: visibleOnboardingSteps,
+      },
+      kpis: {
+        totalCustomers,
+        totalVehicles,
+        totalProducts,
+        activeServices,
+        revenueThisMonth,
+        revenueLastMonth,
+        revenueGrowth: Math.round(revenueGrowth * 10) / 10,
+        completedThisMonth: completedServicesThisMonth._count,
+        lowStockProducts: typeof lowStockProducts === 'number' ? lowStockProducts : 0,
+      },
+      charts: {
+        servicesByStatus: servicesChartData,
+        revenueByMonth: revenueChartData,
+      },
+      recentServices: recentServices.map((service) => ({
+        id: service.id,
+        description: service.description,
+        status: service.status,
+        type: service.type,
+        totalValue: service.totalValue,
+        createdAt: service.createdAt,
+        customer: service.customer,
+        vehicle: service.vehicle,
+      })),
+      recentActivities: recentActivities.map((activity) => ({
+        id: activity.id,
+        action: activity.action,
+        description: activity.description,
+        createdAt: activity.createdAt,
+        user: activity.user,
+      })),
+    },
+  })
 }

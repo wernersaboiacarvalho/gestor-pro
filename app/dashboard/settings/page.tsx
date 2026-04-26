@@ -186,6 +186,15 @@ export default function SettingsPage() {
     }
   }, [data])
 
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    const allowedTabs = ['company', 'employees', 'appearance', 'notifications']
+
+    if (tab && allowedTabs.includes(tab)) {
+      setActiveTab(tab)
+    }
+  }, [])
+
   // Upload de Logo
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

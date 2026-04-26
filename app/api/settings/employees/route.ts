@@ -1,6 +1,5 @@
-// app/api/settings/employees/route.ts
 import { NextRequest } from 'next/server'
-import { getTenantSession } from '@/lib/tenant-guard'
+import { getTenantSession, assertTenantCapacity } from '@/lib/tenant-guard'
 import { withErrorHandling } from '@/lib/http/with-error-handling'
 import { ApiResponse } from '@/lib/http/api-response'
 import { validateRequestBody } from '@/lib/http/validate-request'
@@ -11,17 +10,13 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 
 const inviteEmployeeSchema = z.object({
-  name: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres').max(100),
-  email: z.string().email('Email inválido'),
+  name: z.string().min(3, 'Nome deve ter no minimo 3 caracteres').max(100),
+  email: z.string().email('Email invalido'),
   role: z.enum(['OWNER', 'ADMIN', 'EMPLOYEE', 'USER']),
-  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
-  permissions: z.array(z.string()).optional(), // ✅ Adicionado
+  password: z.string().min(6, 'Senha deve ter no minimo 6 caracteres'),
+  permissions: z.array(z.string()).optional(),
 })
 
-/**
- * GET /api/settings/employees
- * Lista todos os funcionários do tenant
- */
 export const GET = withErrorHandling(async () => {
   const { error, tenantId } = await getTenantSession()
   if (error) return error
@@ -43,30 +38,25 @@ export const GET = withErrorHandling(async () => {
     orderBy: { createdAt: 'desc' },
   })
 
-  // Quantos cada um tem de serviços
   const employeesWithCounts = await Promise.all(
-    employees.map(async (emp) => {
+    employees.map(async (employee) => {
       const serviceCount = await prisma.service.count({
-        where: { userId: emp.id },
+        where: { userId: employee.id },
       })
-      return { ...emp, _count: { services: serviceCount } }
+
+      return { ...employee, _count: { services: serviceCount } }
     })
   )
 
   return ApiResponse.success(employeesWithCounts)
 })
 
-/**
- * POST /api/settings/employees
- * Convida/Adiciona um novo funcionário
- */
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const { error, tenantId, session } = await getTenantSession()
   if (error) return error
 
   const data = await validateRequestBody(req, inviteEmployeeSchema)
 
-  // Verificar se email já existe
   const existingUser = await prisma.user.findUnique({
     where: { email: data.email },
   })
@@ -74,26 +64,13 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (existingUser) {
     throw new AppError({
       code: ERROR_CODES.VALIDATION_ERROR,
-      message: 'Este email já está cadastrado no sistema',
+      message: 'Este email ja esta cadastrado no sistema',
       statusCode: 409,
     })
   }
 
-  // Verificar limite de usuários do tenant
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId! },
-    include: { _count: { select: { users: true } } },
-  })
+  await assertTenantCapacity(tenantId!, 'users')
 
-  if (tenant && tenant._count.users >= tenant.maxUsers) {
-    throw new AppError({
-      code: ERROR_CODES.VALIDATION_ERROR,
-      message: `Limite de ${tenant.maxUsers} usuários atingido. Faça upgrade do seu plano.`,
-      statusCode: 403,
-    })
-  }
-
-  // Criar usuário
   const hashedPassword = await bcrypt.hash(data.password, 10)
 
   const user = await prisma.user.create({
@@ -103,18 +80,16 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       password: hashedPassword,
       role: data.role,
       tenantId: tenantId!,
-      permissions: data.permissions || [], // ✅ Salvar permissões
+      permissions: data.permissions || [],
     },
-    // ...
   })
 
-  // Registrar atividade
   await prisma.activity.create({
     data: {
       tenantId: tenantId!,
       userId: session!.user.id,
       action: 'EMPLOYEE_INVITED',
-      description: `Funcionário ${data.name} (${data.role}) foi adicionado ao sistema`,
+      description: `Funcionario ${data.name} (${data.role}) foi adicionado ao sistema`,
       metadata: {
         employeeId: user.id,
         role: data.role,

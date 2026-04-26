@@ -6,52 +6,42 @@ import { prisma } from '@/lib/prisma'
 import { ApiResponse } from '@/lib/http/api-response'
 
 export const PATCH = withErrorHandling(
-    async (
-        req: Request,
-        { params }: { params: Promise<{ id: string }> }
-    ) => {
-        const { id } = await params
+  async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params
 
-        const { error, tenantId, session } = await getTenantSession()
-        if (error) return error
+    const { error, tenantId, session } = await getTenantSession({ requiredModule: 'services' })
+    if (error) return error
 
-        const body = await req.json()
+    const body = await req.json()
 
-        const updatedService = await ServiceService.update(
-            id,
-            body,
-            tenantId!
-        )
+    const updatedService = await ServiceService.update(id, body, tenantId!)
 
-        await prisma.activity.create({
-            data: {
-                tenantId: tenantId!,
-                userId: session!.user.id,
-                action: 'service.updated',
-                description: `OS #${id.slice(0, 8)} atualizada`,
-                metadata: {
-                    serviceId: id,
-                    totalValue: Number(body.totalValue),
-                },
-            },
-        })
+    await prisma.activity.create({
+      data: {
+        tenantId: tenantId!,
+        userId: session!.user.id,
+        action: 'service.updated',
+        description: `OS #${id.slice(0, 8)} atualizada`,
+        metadata: {
+          serviceId: id,
+          totalValue: Number(body.totalValue),
+        },
+      },
+    })
 
-        return ApiResponse.success(updatedService)
-    }
+    return ApiResponse.success(updatedService)
+  }
 )
 
 export const DELETE = withErrorHandling(
-    async (
-        req: Request,
-        { params }: { params: Promise<{ id: string }> }
-    ) => {
-        const { id } = await params
+  async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params
 
-        const { error, tenantId } = await getTenantSession()
-        if (error) return error
+    const { error, tenantId } = await getTenantSession({ requiredModule: 'services' })
+    if (error) return error
 
-        await ServiceService.delete(id, tenantId!)
+    await ServiceService.delete(id, tenantId!)
 
-        return ApiResponse.message('Excluído com sucesso')
-    }
+    return ApiResponse.message('Excluído com sucesso')
+  }
 )

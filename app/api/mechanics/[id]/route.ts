@@ -9,72 +9,53 @@ import { ApiResponse } from '@/lib/http/api-response'
 import { updateMechanicSchema } from '@/schemas/mechanic.schema'
 
 interface RouteParams {
-    params: Promise<{ id: string }>
+  params: Promise<{ id: string }>
 }
 
 /**
  * GET /api/mechanics/[id]
  * Busca mecânico por ID
  */
-export const GET = withErrorHandling(
-    async (req: NextRequest, { params }: RouteParams) => {
-        const { error, tenantId, session } = await getTenantSession()
-        if (error) return error
+export const GET = withErrorHandling(async (req: NextRequest, { params }: RouteParams) => {
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'mechanics' })
+  if (error) return error
 
-        const { id } = await params
+  const { id } = await params
 
-        const mechanic = await MechanicService.findById(
-            id,
-            tenantId!,
-            session?.user.id
-        )
+  const mechanic = await MechanicService.findById(id, tenantId!, session?.user.id)
 
-        return ApiResponse.success(mechanic)
-    }
-)
+  return ApiResponse.success(mechanic)
+})
 
 /**
  * PATCH /api/mechanics/[id]
  * Atualiza mecânico
  */
-export const PATCH = withErrorHandling(
-    async (req: NextRequest, { params }: RouteParams) => {
-        const { error, tenantId, session } = await getTenantSession()
-        if (error) return error
+export const PATCH = withErrorHandling(async (req: NextRequest, { params }: RouteParams) => {
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'mechanics' })
+  if (error) return error
 
-        const { id } = await params
+  const { id } = await params
 
-        // Validar body com Zod
-        const data = await validateRequestBody(req, updateMechanicSchema)
+  // Validar body com Zod
+  const data = await validateRequestBody(req, updateMechanicSchema)
 
-        const mechanic = await MechanicService.update(
-            id,
-            data,
-            tenantId!,
-            session?.user.id
-        )
+  const mechanic = await MechanicService.update(id, data, tenantId!, session?.user.id)
 
-        return ApiResponse.success(mechanic)
-    }
-)
+  return ApiResponse.success(mechanic)
+})
 
 /**
  * DELETE /api/mechanics/[id]
  * Exclui mecânico
  */
-export const DELETE = withErrorHandling(
-    async (req: NextRequest, { params }: RouteParams) => {
-        const { error, tenantId, session } = await getTenantSession()
-        if (error) return error
+export const DELETE = withErrorHandling(async (req: NextRequest, { params }: RouteParams) => {
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'mechanics' })
+  if (error) return error
 
-        const { id } = await params
+  const { id } = await params
 
-        const result = await MechanicService.delete(
-            id,
-            tenantId!,
-            session?.user.id
-        )
+  const result = await MechanicService.delete(id, tenantId!, session?.user.id)
 
-        return ApiResponse.success(result)
-    }
-)
+  return ApiResponse.success(result)
+})

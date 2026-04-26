@@ -8,7 +8,7 @@ import { ApiResponse } from '@/lib/http/api-response'
 export const GET = withErrorHandling(
   async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    const { error, tenantId } = await getTenantSession()
+    const { error, tenantId } = await getTenantSession({ requiredModule: 'financeiro' })
     if (error) return error
 
     const transaction = await TransactionService.findById(id, tenantId!)
@@ -19,7 +19,7 @@ export const GET = withErrorHandling(
 export const PATCH = withErrorHandling(
   async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    const { error, tenantId, session } = await getTenantSession()
+    const { error, tenantId, session } = await getTenantSession({ requiredModule: 'financeiro' })
     if (error) return error
 
     const body = await req.json()
@@ -31,7 +31,7 @@ export const PATCH = withErrorHandling(
 export const DELETE = withErrorHandling(
   async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    const { error, tenantId, session } = await getTenantSession()
+    const { error, tenantId, session } = await getTenantSession({ requiredModule: 'financeiro' })
     if (error) return error
 
     await TransactionService.delete(id, tenantId!, session!.user.id)

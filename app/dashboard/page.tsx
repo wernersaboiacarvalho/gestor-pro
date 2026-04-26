@@ -33,6 +33,7 @@ import { ptBR } from 'date-fns/locale'
 import { useDashboardStats } from '@/hooks/use-dashboard-query'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatsCardsSkeleton } from '@/components/ui/card-skeleton'
+import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist'
 
 // Helpers
 const statusConfig: Record<
@@ -118,7 +119,7 @@ function DashboardContent() {
     )
   }
 
-  const { kpis, charts, recentServices, recentActivities } = stats
+  const { onboarding, kpis, charts, recentServices, recentActivities } = stats
   const revenueGrowthPositive = kpis.revenueGrowth >= 0
 
   return (
@@ -127,6 +128,8 @@ function DashboardContent() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Visão geral do seu negócio</p>
       </div>
+
+      <OnboardingChecklist onboarding={onboarding} />
 
       {/* KPIs linha 1 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

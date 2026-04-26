@@ -7,7 +7,7 @@ import { ApiResponse } from '@/lib/http/api-response'
 import { TransactionType } from '@prisma/client'
 
 export const GET = withErrorHandling(async (req: Request) => {
-  const { error, tenantId, session } = await getTenantSession()
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'financeiro' })
   if (error) return error
 
   const { searchParams } = new URL(req.url)
@@ -43,7 +43,7 @@ export const GET = withErrorHandling(async (req: Request) => {
 })
 
 export const POST = withErrorHandling(async (req: Request) => {
-  const { error, tenantId, session } = await getTenantSession()
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'financeiro' })
   if (error) return error
 
   const body = await req.json()
