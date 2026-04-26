@@ -4,7 +4,7 @@ import { getTenantSession } from '@/lib/tenant-guard'
 import { withErrorHandling } from '@/lib/http/with-error-handling'
 import { ApiResponse } from '@/lib/http/api-response'
 import { prisma } from '@/lib/prisma'
-import { writeFile } from 'fs/promises'
+import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -17,7 +17,7 @@ const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
  * Upload do logo da empresa
  */
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const { error, tenantId } = await getTenantSession()
+  const { error, tenantId } = await getTenantSession({ requiredModule: 'settings' })
   if (error) return error
 
   const formData = await req.formData()
@@ -50,6 +50,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
 
+  await mkdir(publicDir, { recursive: true })
   await writeFile(filePath, buffer)
 
   const logoUrl = `/uploads/logos/${fileName}`

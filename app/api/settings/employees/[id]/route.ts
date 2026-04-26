@@ -8,14 +8,63 @@ import { prisma } from '@/lib/prisma'
 import { AppError } from '@/lib/errors/app-error'
 import { ERROR_CODES } from '@/lib/errors/error-codes'
 import { z } from 'zod'
+import type { TenantModulesMap } from '@/lib/tenancy/module-catalog'
 
 const updateEmployeeSchema = z.object({
   name: z.string().min(3).max(100).optional(),
   role: z.enum(['OWNER', 'ADMIN', 'EMPLOYEE', 'USER']).optional(),
+  permissions: z.array(z.string()).optional(),
 })
 
 interface RouteParams {
   params: Promise<{ id: string }>
+}
+
+const VALID_EMPLOYEE_PERMISSIONS = [
+  'dashboard',
+  'customers',
+  'services',
+  'products',
+  'financeiro',
+  'vehicles',
+  'mechanics',
+  'third_party',
+  'activities',
+  'settings',
+  'employees',
+] as const
+
+type EmployeePermission = (typeof VALID_EMPLOYEE_PERMISSIONS)[number]
+
+function sanitizePermissions(
+  permissions: string[] | undefined,
+  modules: TenantModulesMap
+): EmployeePermission[] {
+  const enabled = new Set(
+    Object.entries(modules)
+      .filter(([, isEnabled]) => isEnabled)
+      .map(([key]) => key)
+  )
+
+  return Array.from(new Set(permissions ?? [])).filter(
+    (permission): permission is EmployeePermission => {
+      if (!VALID_EMPLOYEE_PERMISSIONS.includes(permission as EmployeePermission)) {
+        return false
+      }
+
+      if (permission === 'employees') {
+        return enabled.has('settings')
+      }
+
+      return enabled.has(permission)
+    }
+  )
+}
+
+function normalizePermissions(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((permission): permission is string => typeof permission === 'string')
+    : []
 }
 
 /**
@@ -23,7 +72,9 @@ interface RouteParams {
  * Atualiza dados de um funcionário
  */
 export const PATCH = withErrorHandling(async (req: NextRequest, { params }: RouteParams) => {
-  const { error, tenantId, session } = await getTenantSession()
+  const { error, tenantId, session, modules } = await getTenantSession({
+    requiredModule: 'settings',
+  })
   if (error) return error
 
   const { id } = await params
@@ -62,12 +113,14 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Rout
     data: {
       ...(data.name && { name: data.name }),
       ...(data.role && { role: data.role }),
+      ...(data.permissions && { permissions: sanitizePermissions(data.permissions, modules!) }),
     },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
+      permissions: true,
       createdAt: true,
       lastLoginAt: true,
     },
@@ -84,7 +137,10 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Rout
     },
   })
 
-  return ApiResponse.success(updated)
+  return ApiResponse.success({
+    ...updated,
+    permissions: normalizePermissions(updated.permissions),
+  })
 })
 
 /**
@@ -92,7 +148,7 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Rout
  * Remove um funcionário
  */
 export const DELETE = withErrorHandling(async (req: NextRequest, { params }: RouteParams) => {
-  const { error, tenantId, session } = await getTenantSession()
+  const { error, tenantId, session } = await getTenantSession({ requiredModule: 'settings' })
   if (error) return error
 
   const { id } = await params

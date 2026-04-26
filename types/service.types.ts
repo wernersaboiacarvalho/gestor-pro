@@ -1,95 +1,125 @@
 // types/service.types.ts
 
 export interface Customer {
-    id: string
-    name: string
-    phone: string
+  id: string
+  name: string
+  phone: string
 }
 
 export interface Vehicle {
-    id: string
-    plate: string
-    brand: string
-    model: string
-    customerId: string
-    year: number
+  id: string
+  plate: string
+  brand: string
+  model: string
+  customerId: string
+  year: number
 }
 
 export interface Mechanic {
-    id: string
-    name: string
-    specialty: string | null
-    commissionRate: number | null
-    status: string
+  id: string
+  name: string
+  specialty: string | null
+  commissionRate: number | null
+  status: string
 }
 
 export interface ThirdPartyProvider {
-    id: string
-    name: string
-    phone?: string | null
-    email?: string | null
+  id: string
+  name: string
+  phone?: string | null
+  email?: string | null
 }
 
 export interface ServiceItem {
-    type: 'PART' | 'LABOR'
-    description: string
-    quantity: number
-    unitPrice: number
-    totalPrice: number
+  id?: string
+  type: 'PART' | 'LABOR'
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
 }
 
 export interface ServiceMechanic {
-    mechanicId: string
-    hoursWorked: number
-    commission: number
-    notes?: string
+  id?: string
+  mechanicId: string
+  mechanic?: Mechanic
+  hoursWorked: number
+  commission: number
+  notes?: string
 }
 
 export interface ThirdPartyService {
-    providerId: string
-    description: string
-    cost: number
-    chargedValue: number
-    status: string
+  id?: string
+  providerId: string
+  provider?: ThirdPartyProvider
+  description: string
+  cost: number
+  chargedValue: number
+  status: string
+}
+
+export interface ServiceAttachment {
+  id: string
+  serviceId: string
+  tenantId: string
+  url: string
+  fileName: string | null
+  mimeType: string
+  size: number
+  caption: string | null
+  createdById: string | null
+  createdAt: string
+}
+
+export interface PendingServicePhoto {
+  id: string
+  file: File
+  previewUrl: string
+  caption?: string
 }
 
 export interface Service {
-    id: string
-    type: 'ORCAMENTO' | 'ORDEM_SERVICO'
-    customerId: string
-    customer: { name: string }
-    vehicle: { plate: string; model: string; brand: string } | null
-    serviceMechanics: ServiceMechanic[]
-    items: ServiceItem[]
-    description: string
-    status: string
-    totalValue: number
-    notes: string | null
-    scheduledDate: string | null
-    vehicleId: string | null
+  id: string
+  type: 'ORCAMENTO' | 'ORDEM_SERVICO'
+  customerId: string
+  customer: { name: string; phone?: string | null; email?: string | null; address?: string | null }
+  vehicle: { plate: string; model: string; brand: string } | null
+  serviceMechanics: ServiceMechanic[]
+  items: ServiceItem[]
+  thirdPartyServices?: ThirdPartyService[]
+  attachments?: ServiceAttachment[]
+  description: string
+  status: string
+  totalValue: number
+  notes: string | null
+  scheduledDate: string | null
+  vehicleId: string | null
+  approvedAt?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface ServiceStats {
-    total: number
-    pending: number
-    inProgress: number
-    completed: number
-    totalRevenue: number
+  total: number
+  pending: number
+  inProgress: number
+  completed: number
+  totalRevenue: number
 }
 
 export interface ServiceFormData {
-    type: 'ORCAMENTO' | 'ORDEM_SERVICO'
-    customerId: string
-    vehicleId?: string
-    description: string
-    status: string
-    scheduledDate?: string
-    notes?: string
+  type: 'ORCAMENTO' | 'ORDEM_SERVICO'
+  customerId: string
+  vehicleId?: string
+  description: string
+  status: string
+  scheduledDate?: string
+  notes?: string
 }
 
 export interface ServiceFormSubmitData extends ServiceFormData {
-    mechanics: ServiceMechanic[]
-    items: ServiceItem[]
-    thirdPartyServices: ThirdPartyService[]
-    totalValue: number
+  mechanics: ServiceMechanic[]
+  items: ServiceItem[]
+  thirdPartyServices: ThirdPartyService[]
+  totalValue: number
 }

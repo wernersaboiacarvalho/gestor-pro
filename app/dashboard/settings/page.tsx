@@ -1,7 +1,7 @@
 // app/dashboard/settings/page.tsx
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,6 +69,28 @@ const roleColors: Record<string, string> = {
   USER: 'bg-gray-100 text-gray-800',
 }
 
+const permissionOrder: Permission[] = [
+  PERMISSIONS.DASHBOARD,
+  PERMISSIONS.CUSTOMERS,
+  PERMISSIONS.SERVICES,
+  PERMISSIONS.VEHICLES,
+  PERMISSIONS.MECHANICS,
+  PERMISSIONS.THIRD_PARTY,
+  PERMISSIONS.PRODUCTS,
+  PERMISSIONS.FINANCEIRO,
+  PERMISSIONS.ACTIVITIES,
+  PERMISSIONS.SETTINGS,
+]
+
+const defaultEmployeePermissionCandidates: Permission[] = [
+  PERMISSIONS.DASHBOARD,
+  PERMISSIONS.CUSTOMERS,
+  PERMISSIONS.SERVICES,
+  PERMISSIONS.VEHICLES,
+  PERMISSIONS.MECHANICS,
+  PERMISSIONS.ACTIVITIES,
+]
+
 interface InviteFormData {
   name: string
   email: string
@@ -98,6 +120,7 @@ export default function SettingsPage() {
     id: string
     name: string
     role: string
+    permissions: string[]
   } | null>(null)
 
   // ✅ Permissões - DENTRO do componente
@@ -156,7 +179,22 @@ export default function SettingsPage() {
   const [editData, setEditData] = useState({
     name: '',
     role: '',
+    permissions: [] as Permission[],
   })
+
+  const resolvedModules = useMemo(() => data?.resolvedModules ?? {}, [data?.resolvedModules])
+  const enabledPermissions = useMemo(
+    () => permissionOrder.filter((permission) => Boolean(resolvedModules[permission])),
+    [resolvedModules]
+  )
+  const defaultInvitePermissions = useMemo(
+    () =>
+      defaultEmployeePermissionCandidates.filter((permission) =>
+        Boolean(resolvedModules[permission])
+      ),
+    [resolvedModules]
+  )
+  const enabledPermissionSet = useMemo(() => new Set(enabledPermissions), [enabledPermissions])
 
   // Inicializar dados quando a API retornar
   useEffect(() => {
@@ -185,6 +223,20 @@ export default function SettingsPage() {
       }
     }
   }, [data])
+
+  useEffect(() => {
+    if (!data) return
+
+    setInvitePermissions((current) => {
+      const filtered = current.filter((permission) => enabledPermissionSet.has(permission))
+      const nextPermissions = filtered.length > 0 ? filtered : defaultInvitePermissions
+      const hasChanged =
+        nextPermissions.length !== current.length ||
+        nextPermissions.some((permission, index) => permission !== current[index])
+
+      return hasChanged ? nextPermissions : current
+    })
+  }, [data, defaultInvitePermissions, enabledPermissionSet])
 
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
@@ -225,6 +277,7 @@ export default function SettingsPage() {
       const result = await response.json()
 
       if (result.success) {
+        await updateSettings.mutateAsync({ logo: result.data.logoUrl } as Record<string, unknown>)
         setLogoUrl(result.data.logoUrl)
         success('Logo atualizado!', 'O logo da empresa foi atualizado com sucesso.')
       } else {
@@ -299,7 +352,7 @@ export default function SettingsPage() {
           success('Funcionário convidado!', `${inviteData.name} foi adicionado.`)
           setIsInviteDialogOpen(false)
           setInviteData({ name: '', email: '', role: 'EMPLOYEE', password: '' })
-          setInvitePermissions([PERMISSIONS.DASHBOARD, PERMISSIONS.CUSTOMERS, PERMISSIONS.SERVICES])
+          setInvitePermissions(defaultInvitePermissions)
         },
         onError: (err) => showError('Erro', err.message),
       }
@@ -333,9 +386,17 @@ export default function SettingsPage() {
     })
   }
 
-  const openEditDialog = (employee: { id: string; name: string; role: string }) => {
+  const openEditDialog = (employee: {
+    id: string
+    name: string
+    role: string
+    permissions: string[]
+  }) => {
+    const permissions = employee.permissions.filter((permission): permission is Permission =>
+      enabledPermissionSet.has(permission as Permission)
+    )
     setEditingEmployee(employee)
-    setEditData({ name: employee.name, role: employee.role })
+    setEditData({ name: employee.name, role: employee.role, permissions })
     setIsEditDialogOpen(true)
   }
 
@@ -439,6 +500,41 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Resumo da Conta</CardTitle>
+              <CardDescription>
+                Dados operacionais que ajudam no dia a dia da oficina
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <p className="text-sm font-semibold">{(data?.tenant?.status as string) || '-'}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Slug</p>
+                  <p className="truncate text-sm font-semibold">
+                    {(data?.tenant?.slug as string) || '-'}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Limite de usuarios</p>
+                  <p className="text-sm font-semibold">
+                    {(data?.tenant?.maxUsers as number) || '-'}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Modulos ativos</p>
+                  <p className="text-sm font-semibold">
+                    {enabledPermissions.length} de {permissionOrder.length}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Dados da Empresa */}
           <Card>
             <CardHeader>
@@ -530,6 +626,13 @@ export default function SettingsPage() {
                         <div>
                           <p className="font-medium">{employee.name}</p>
                           <p className="text-sm text-muted-foreground">{employee.email}</p>
+                          {employee.role !== 'OWNER' && employee.role !== 'ADMIN' && (
+                            <p className="text-xs text-muted-foreground">
+                              {employee.permissions.length > 0
+                                ? `${employee.permissions.length} modulos liberados`
+                                : 'Usa permissoes padrao da funcao'}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -847,24 +950,28 @@ export default function SettingsPage() {
                 Selecione os módulos que o funcionário pode acessar
               </p>
               <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-3">
-                {Object.entries(permissionLabels).map(([key, label]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`perm-${key}`}
-                      checked={invitePermissions.includes(key as Permission)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setInvitePermissions([...invitePermissions, key as Permission])
-                        } else {
-                          setInvitePermissions(invitePermissions.filter((p) => p !== key))
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`perm-${key}`} className="text-sm cursor-pointer">
-                      {label}
-                    </Label>
-                  </div>
-                ))}
+                {enabledPermissions.map((key) => {
+                  const label = permissionLabels[key]
+
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`perm-${key}`}
+                        checked={invitePermissions.includes(key)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setInvitePermissions([...invitePermissions, key])
+                          } else {
+                            setInvitePermissions(invitePermissions.filter((p) => p !== key))
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`perm-${key}`} className="text-sm cursor-pointer">
+                        {label}
+                      </Label>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -911,6 +1018,30 @@ export default function SettingsPage() {
                   <SelectItem value="USER">Usuário</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Permissoes de Acesso</Label>
+              <div className="grid max-h-44 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-3">
+                {enabledPermissions.map((permission) => (
+                  <div key={permission} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`edit-perm-${permission}`}
+                      checked={editData.permissions.includes(permission)}
+                      onCheckedChange={(checked) => {
+                        setEditData({
+                          ...editData,
+                          permissions: checked
+                            ? [...editData.permissions, permission]
+                            : editData.permissions.filter((item) => item !== permission),
+                        })
+                      }}
+                    />
+                    <Label htmlFor={`edit-perm-${permission}`} className="cursor-pointer text-sm">
+                      {permissionLabels[permission]}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>

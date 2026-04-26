@@ -45,7 +45,10 @@ export function usePermissions() {
     | Permission[]
     | undefined
 
-  const permissions = customPermissions || DEFAULT_ROLE_PERMISSIONS[role] || []
+  const permissions =
+    customPermissions && customPermissions.length > 0
+      ? customPermissions
+      : DEFAULT_ROLE_PERMISSIONS[role] || []
 
   const hasPermission = (permission: Permission): boolean => {
     if (role === 'OWNER' || role === 'ADMIN') return true

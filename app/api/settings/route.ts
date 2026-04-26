@@ -87,7 +87,7 @@ export const GET = withErrorHandling(async () => {
 })
 
 export const PATCH = withErrorHandling(async (req: NextRequest) => {
-  const { error, tenantId } = await getTenantSession()
+  const { error, tenantId } = await getTenantSession({ requiredModule: 'settings' })
   if (error) return error
 
   const data = await validateRequestBody(req, updateSettingsSchema)

@@ -48,6 +48,7 @@ export function useEmployees() {
           email: string
           role: string
           avatar: string | null
+          permissions: string[]
           createdAt: string
           lastLoginAt: string | null
           _count: { services: number }

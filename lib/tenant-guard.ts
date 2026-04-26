@@ -42,12 +42,51 @@ interface TenantSessionResult {
   modules: TenantModulesMap | null
 }
 
+const MODULE_PERMISSION_MAP: Partial<Record<TenantModuleKey, string>> = {
+  dashboard: 'dashboard',
+  customers: 'customers',
+  services: 'services',
+  products: 'products',
+  financeiro: 'financeiro',
+  activities: 'activities',
+  settings: 'settings',
+  vehicles: 'vehicles',
+  mechanics: 'mechanics',
+  third_party: 'third_party',
+}
+
+const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  OWNER: Object.values(MODULE_PERMISSION_MAP),
+  ADMIN: Object.values(MODULE_PERMISSION_MAP),
+  EMPLOYEE: ['dashboard', 'customers', 'services', 'vehicles', 'mechanics', 'activities'],
+  USER: ['dashboard', 'customers', 'services'],
+}
+
 function isTrialExpired(tenant: TenantAccessRecord) {
   if (tenant.status !== 'TRIAL' || !tenant.trialEndsAt) {
     return false
   }
 
   return tenant.trialEndsAt.getTime() < Date.now()
+}
+
+function canUseModule(session: Session, module: TenantModuleKey) {
+  const role = session.user.role
+
+  if (role === 'OWNER' || role === 'ADMIN') {
+    return true
+  }
+
+  const requiredPermission = MODULE_PERMISSION_MAP[module]
+  if (!requiredPermission) {
+    return false
+  }
+
+  const customPermissions = Array.isArray(session.user.permissions) ? session.user.permissions : []
+  const permissions =
+    customPermissions.length > 0 ? customPermissions : DEFAULT_ROLE_PERMISSIONS[role] || []
+
+  return permissions.includes(requiredPermission)
 }
 
 export async function getTenantSession(
@@ -166,6 +205,24 @@ export async function getTenantSession(
       error: ApiResponse.error(
         ERROR_CODES.TENANT_MODULE_DISABLED,
         'O modulo solicitado esta desabilitado para este tenant.',
+        403,
+        {
+          tenantId: tenant.id,
+          module: options.requiredModule,
+        }
+      ),
+      session,
+      tenantId: tenant.id,
+      tenant,
+      modules,
+    }
+  }
+
+  if (options.requiredModule && !canUseModule(session, options.requiredModule)) {
+    return {
+      error: ApiResponse.error(
+        ERROR_CODES.FORBIDDEN,
+        'Voce nao tem permissao para acessar este modulo.',
         403,
         {
           tenantId: tenant.id,

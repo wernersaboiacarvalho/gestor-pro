@@ -5,6 +5,19 @@ import { withErrorHandling } from '@/lib/http/with-error-handling'
 import { prisma } from '@/lib/prisma'
 import { ApiResponse } from '@/lib/http/api-response'
 
+export const GET = withErrorHandling(
+  async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params
+
+    const { error, tenantId, session } = await getTenantSession({ requiredModule: 'services' })
+    if (error) return error
+
+    const service = await ServiceService.findById(id, tenantId!, session?.user.id)
+
+    return ApiResponse.success(service)
+  }
+)
+
 export const PATCH = withErrorHandling(
   async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
@@ -14,7 +27,7 @@ export const PATCH = withErrorHandling(
 
     const body = await req.json()
 
-    const updatedService = await ServiceService.update(id, body, tenantId!)
+    const updatedService = await ServiceService.update(id, body, tenantId!, session!.user.id)
 
     await prisma.activity.create({
       data: {

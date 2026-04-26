@@ -8,6 +8,7 @@ import { AppError } from '@/lib/errors/app-error'
 import { ERROR_CODES } from '@/lib/errors/error-codes'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
+import type { TenantModulesMap } from '@/lib/tenancy/module-catalog'
 
 const inviteEmployeeSchema = z.object({
   name: z.string().min(3, 'Nome deve ter no minimo 3 caracteres').max(100),
@@ -17,8 +18,55 @@ const inviteEmployeeSchema = z.object({
   permissions: z.array(z.string()).optional(),
 })
 
+const VALID_EMPLOYEE_PERMISSIONS = [
+  'dashboard',
+  'customers',
+  'services',
+  'products',
+  'financeiro',
+  'vehicles',
+  'mechanics',
+  'third_party',
+  'activities',
+  'settings',
+  'employees',
+] as const
+
+type EmployeePermission = (typeof VALID_EMPLOYEE_PERMISSIONS)[number]
+
+function sanitizePermissions(
+  permissions: string[] | undefined,
+  modules: TenantModulesMap
+): EmployeePermission[] {
+  const enabled = new Set(
+    Object.entries(modules)
+      .filter(([, isEnabled]) => isEnabled)
+      .map(([key]) => key)
+  )
+
+  return Array.from(new Set(permissions ?? [])).filter(
+    (permission): permission is EmployeePermission => {
+      if (!VALID_EMPLOYEE_PERMISSIONS.includes(permission as EmployeePermission)) {
+        return false
+      }
+
+      if (permission === 'employees') {
+        return enabled.has('settings')
+      }
+
+      return enabled.has(permission)
+    }
+  )
+}
+
+function normalizePermissions(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((permission): permission is string => typeof permission === 'string')
+    : []
+}
+
 export const GET = withErrorHandling(async () => {
-  const { error, tenantId } = await getTenantSession()
+  const { error, tenantId } = await getTenantSession({ requiredModule: 'settings' })
   if (error) return error
 
   const employees = await prisma.user.findMany({
@@ -32,6 +80,7 @@ export const GET = withErrorHandling(async () => {
       email: true,
       role: true,
       avatar: true,
+      permissions: true,
       createdAt: true,
       lastLoginAt: true,
     },
@@ -44,7 +93,11 @@ export const GET = withErrorHandling(async () => {
         where: { userId: employee.id },
       })
 
-      return { ...employee, _count: { services: serviceCount } }
+      return {
+        ...employee,
+        permissions: normalizePermissions(employee.permissions),
+        _count: { services: serviceCount },
+      }
     })
   )
 
@@ -52,7 +105,9 @@ export const GET = withErrorHandling(async () => {
 })
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const { error, tenantId, session } = await getTenantSession()
+  const { error, tenantId, session, modules } = await getTenantSession({
+    requiredModule: 'settings',
+  })
   if (error) return error
 
   const data = await validateRequestBody(req, inviteEmployeeSchema)
@@ -80,7 +135,17 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       password: hashedPassword,
       role: data.role,
       tenantId: tenantId!,
-      permissions: data.permissions || [],
+      permissions: sanitizePermissions(data.permissions, modules!),
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatar: true,
+      permissions: true,
+      createdAt: true,
+      lastLoginAt: true,
     },
   })
 

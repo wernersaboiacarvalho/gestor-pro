@@ -277,12 +277,31 @@ model Service {
   items              ServiceItem[]
   serviceMechanics   ServiceMechanic[] // NOVO! Múltiplos mecânicos
   thirdPartyServices ThirdPartyService[] // NOVO! Serviços terceirizados
+  attachments        ServiceAttachment[]
 
   @@index([tenantId])
   @@index([customerId])
   @@index([vehicleId])
   @@index([status])
   @@index([type])
+}
+
+model ServiceAttachment {
+  id          String   @id @default(cuid())
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tenantId    String
+  url         String
+  fileName    String?
+  mimeType    String
+  size        Int
+  caption     String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([serviceId])
+  @@index([tenantId])
+  @@index([createdAt])
 }
 
 model ServiceItem {
