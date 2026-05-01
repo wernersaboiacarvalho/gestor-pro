@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
+  Building2,
   CalendarDays,
   Car,
   CheckCircle2,
@@ -26,6 +27,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Separator } from '@/components/ui/separator'
 import { ServiceChecklist } from '@/components/services/service-checklist'
 import { ServiceForm } from '@/components/services/service-form'
+import { ServiceThirdPartyPanel } from '@/components/services/service-third-party-panel'
 import { StatusBadge } from '@/components/services/status-badge'
 import { TypeBadge } from '@/components/services/type-badge'
 import { useToast } from '@/hooks/use-toast'
@@ -62,6 +64,8 @@ const activityLabels: Record<string, string> = {
   SERVICE_CHECKLIST_ITEM_COMPLETED: 'Tarefa concluida',
   SERVICE_CHECKLIST_ITEM_REOPENED: 'Tarefa reaberta',
   SERVICE_CHECKLIST_ITEM_DELETED: 'Tarefa removida',
+  SERVICE_THIRD_PARTY_STATUS_UPDATED: 'Terceirizado atualizado',
+  SERVICE_THIRD_PARTY_NOTES_UPDATED: 'Observacao do terceirizado',
   'service.updated': 'Documento atualizado',
 }
 
@@ -105,6 +109,9 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
   const attachments = service?.attachments || []
   const serviceMechanics = service?.serviceMechanics || []
   const checklistItems = service?.checklistItems || []
+  const pendingThirdPartyCount = thirdPartyServices.filter(
+    (item) => item.status !== 'RETORNADO'
+  ).length
 
   const totals = useMemo(() => {
     const parts = items
@@ -275,7 +282,7 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -318,6 +325,24 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{attachments.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Building2 className="h-4 w-4" />
+              Terceiros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{thirdPartyServices.length}</div>
+            {thirdPartyServices.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {pendingThirdPartyCount === 0
+                  ? 'Todos retornaram'
+                  : `${pendingThirdPartyCount} pendente(s)`}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -435,6 +460,8 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
               )}
             </CardContent>
           </Card>
+
+          <ServiceThirdPartyPanel serviceId={service.id} services={thirdPartyServices} />
 
           <Card>
             <CardHeader>

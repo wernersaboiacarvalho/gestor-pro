@@ -20,6 +20,14 @@ const itemTypeLabels = {
   LABOR: 'Mao de obra',
 } as const
 
+const thirdPartyStatusLabels: Record<string, string> = {
+  PENDENTE: 'Pendente',
+  ENVIADO: 'Enviado',
+  EM_EXECUCAO: 'Em execucao',
+  CONCLUIDO: 'Concluido',
+  RETORNADO: 'Retornado',
+}
+
 function formatDate(value: Date | string | null | undefined) {
   if (!value) return '-'
 
@@ -322,22 +330,33 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
                 Servicos terceirizados
               </h3>
               <div className="space-y-2">
-                {service.thirdPartyServices.map((item) => (
-                  <div
-                    key={item.id}
-                    className="avoid-break flex flex-col gap-1 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <p className="font-semibold">{item.description}</p>
-                      <p className="text-xs text-slate-500">
-                        {item.provider.name} - Status: {item.status}
-                      </p>
+                {service.thirdPartyServices.map((item) => {
+                  const cost = Number(item.cost || 0)
+                  const chargedValue = Number(item.chargedValue || 0)
+                  const margin = chargedValue - cost
+
+                  return (
+                    <div key={item.id} className="avoid-break rounded-md border p-3 text-sm">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-semibold">{item.description}</p>
+                          <p className="text-xs text-slate-500">
+                            {item.provider.name} -{' '}
+                            {thirdPartyStatusLabels[item.status] || item.status}
+                          </p>
+                        </div>
+                        <p className="font-semibold">{formatCurrency(chargedValue)}</p>
+                      </div>
+
+                      <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-4">
+                        <span>Custo: {formatCurrency(cost)}</span>
+                        <span>Margem: {formatCurrency(margin)}</span>
+                        <span>Envio: {formatDate(item.sentAt)}</span>
+                        <span>Retorno: {formatDate(item.returnedAt)}</span>
+                      </div>
                     </div>
-                    <p className="font-semibold">
-                      {formatCurrency(Number(item.chargedValue ?? 0))}
-                    </p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

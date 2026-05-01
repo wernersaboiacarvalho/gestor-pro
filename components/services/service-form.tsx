@@ -82,6 +82,9 @@ interface ThirdPartyService {
   cost: number
   chargedValue: number
   status: string
+  sentAt?: string | null
+  returnedAt?: string | null
+  notes?: string | null
 }
 
 interface ServiceFormData {
@@ -203,6 +206,9 @@ export function ServiceForm({
           cost: tp.cost,
           chargedValue: tp.chargedValue,
           status: tp.status || 'PENDENTE',
+          sentAt: tp.sentAt || null,
+          returnedAt: tp.returnedAt || null,
+          notes: tp.notes || null,
         }))
       )
     } else {

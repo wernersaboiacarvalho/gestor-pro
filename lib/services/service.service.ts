@@ -8,11 +8,15 @@ import { logger } from '@/lib/logger/logger'
 import { ActivityService } from '@/lib/services/activity.service'
 
 interface ThirdPartyServiceData {
+  id?: string
   providerId: string
   description: string
   cost: number | string
   chargedValue: number | string
   status?: string
+  sentAt?: string | null
+  returnedAt?: string | null
+  notes?: string | null
 }
 
 interface ServiceMechanicData {
@@ -215,6 +219,10 @@ export class ServiceService {
               description: tp.description,
               cost: Number(tp.cost),
               chargedValue: Number(tp.chargedValue),
+              status: (tp.status || 'PENDENTE') as ThirdPartyServiceStatus,
+              sentAt: tp.sentAt ? new Date(tp.sentAt) : null,
+              returnedAt: tp.returnedAt ? new Date(tp.returnedAt) : null,
+              notes: tp.notes || null,
             })) || [],
         },
         serviceMechanics: {
@@ -351,6 +359,9 @@ export class ServiceService {
               cost: Number(tp.cost) || 0,
               chargedValue: Number(tp.chargedValue) || 0,
               status: (tp.status || 'PENDENTE') as ThirdPartyServiceStatus,
+              sentAt: tp.sentAt ? new Date(tp.sentAt) : null,
+              returnedAt: tp.returnedAt ? new Date(tp.returnedAt) : null,
+              notes: tp.notes || null,
             })),
           },
         },

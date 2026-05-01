@@ -185,6 +185,33 @@ export function useDeleteServiceChecklistItem(serviceId: string | null | undefin
   })
 }
 
+export function useUpdateThirdPartyService(serviceId: string | null | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      thirdPartyServiceId,
+      status,
+      notes,
+    }: {
+      thirdPartyServiceId: string
+      status?: string
+      notes?: string | null
+    }) => {
+      if (!serviceId) throw new Error('Documento sem identificador.')
+      return api.patch<Service>(`/api/services/${serviceId}/third-party/${thirdPartyServiceId}`, {
+        status,
+        notes,
+      })
+    },
+    onSuccess: (updatedService) => {
+      queryClient.setQueryData([SERVICES_KEY, updatedService.id], updatedService)
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', updatedService.id] })
+    },
+  })
+}
+
 export function useDeleteService() {
   const queryClient = useQueryClient()
 

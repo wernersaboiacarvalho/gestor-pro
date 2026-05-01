@@ -26,6 +26,7 @@ export interface Mechanic {
 export interface ThirdPartyProvider {
   id: string
   name: string
+  type?: string | null
   phone?: string | null
   email?: string | null
 }
@@ -54,8 +55,12 @@ export interface ThirdPartyService {
   provider?: ThirdPartyProvider
   description: string
   cost: number
+  markup?: number | null
   chargedValue: number
   status: string
+  sentAt?: string | null
+  returnedAt?: string | null
+  notes?: string | null
 }
 
 export interface ServiceAttachment {
