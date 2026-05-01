@@ -85,7 +85,8 @@ export interface Service {
   type: 'ORCAMENTO' | 'ORDEM_SERVICO'
   customerId: string
   customer: { name: string; phone?: string | null; email?: string | null; address?: string | null }
-  vehicle: { plate: string; model: string; brand: string } | null
+  vehicle: { plate: string; model: string; brand: string; year?: number | null } | null
+  user?: { id: string; name: string; email: string } | null
   serviceMechanics: ServiceMechanic[]
   items: ServiceItem[]
   thirdPartyServices?: ThirdPartyService[]
@@ -95,10 +96,29 @@ export interface Service {
   totalValue: number
   notes: string | null
   scheduledDate: string | null
+  completedDate?: string | null
   vehicleId: string | null
   approvedAt?: string | null
+  expiresAt?: string | null
+  clientApprovalName?: string | null
+  clientApprovalDocument?: string | null
+  clientApprovalNotes?: string | null
   createdAt?: string
   updatedAt?: string
+}
+
+export interface ServiceActivity {
+  id: string
+  action: string
+  description: string
+  metadata: Record<string, unknown> | null
+  createdAt: string
+  user?: {
+    id: string
+    name: string
+    email: string
+    role: string
+  } | null
 }
 
 export interface ServiceStats {

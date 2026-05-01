@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card } from '@/components/ui/card'
-import { Car, CheckCircle2, Edit, FileText, Share2 } from 'lucide-react'
+import { Car, CheckCircle2, Edit, Eye, FileText, Share2 } from 'lucide-react'
 import type { Service } from '@/types/service.types'
 import { formatCurrency } from '@/lib/formatters/currency'
 
@@ -116,6 +116,11 @@ export function ServiceTable({
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-1">
+                    <Button asChild variant="ghost" size="icon" title="Ver detalhes">
+                      <Link href={`/dashboard/services/${s.id}`}>
+                        <Eye className="h-4 w-4 text-slate-700" />
+                      </Link>
+                    </Button>
                     <Button variant="ghost" size="icon" title="Editar" onClick={() => onEdit(s)}>
                       <Edit className="h-4 w-4 text-blue-600" />
                     </Button>

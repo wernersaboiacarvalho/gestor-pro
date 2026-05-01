@@ -3,7 +3,12 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api-client'
-import type { Service, ServiceAttachment, ServiceFormSubmitData } from '@/types/service.types'
+import type {
+  Service,
+  ServiceActivity,
+  ServiceAttachment,
+  ServiceFormSubmitData,
+} from '@/types/service.types'
 import type { PaginatedResponse } from '@/types/pagination'
 
 const SERVICES_KEY = 'services'
@@ -74,6 +79,20 @@ export function useUpdateService() {
   })
 }
 
+export function useUpdateServiceStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Service['status'] }) =>
+      api.patch<Service>(`/api/services/${id}/status`, { status }),
+    onSuccess: (updatedService) => {
+      queryClient.setQueryData([SERVICES_KEY, updatedService.id], updatedService)
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', updatedService.id] })
+    },
+  })
+}
+
 export function useApproveService() {
   const queryClient = useQueryClient()
 
@@ -82,7 +101,28 @@ export function useApproveService() {
     onSuccess: (updatedService) => {
       queryClient.setQueryData([SERVICES_KEY, updatedService.id], updatedService)
       queryClient.invalidateQueries({ queryKey: [SERVICES_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', updatedService.id] })
     },
+  })
+}
+
+export function useServiceActivities(serviceId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['activities', 'service', serviceId],
+    queryFn: async () => {
+      const response = await api.get<{
+        activities: ServiceActivity[]
+        pagination: {
+          total: number
+          limit: number
+          skip: number
+          hasMore: boolean
+        }
+      }>(`/api/activities?serviceId=${serviceId}&limit=100`)
+
+      return Array.isArray(response.activities) ? response.activities : []
+    },
+    enabled: Boolean(serviceId),
   })
 }
 

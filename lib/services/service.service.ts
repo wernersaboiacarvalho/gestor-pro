@@ -64,6 +64,22 @@ export interface UpdateServiceDTO {
   thirdPartyServices?: ThirdPartyServiceData[]
 }
 
+const serviceDetailInclude = {
+  customer: true,
+  vehicle: true,
+  items: true,
+  attachments: { orderBy: { createdAt: 'desc' as const } },
+  thirdPartyServices: { include: { provider: true } },
+  serviceMechanics: { include: { mechanic: true } },
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+}
+
 export class ServiceService {
   // =============================
   // LISTAR
@@ -110,20 +126,7 @@ export class ServiceService {
 
     const service = await prisma.service.findFirst({
       where: { id: serviceId, tenantId },
-      include: {
-        customer: true,
-        vehicle: true,
-        items: true,
-        thirdPartyServices: { include: { provider: true } },
-        serviceMechanics: { include: { mechanic: true } },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      include: serviceDetailInclude,
     })
 
     if (!service) {
@@ -406,6 +409,88 @@ export class ServiceService {
         status: updatedService.status,
         totalValue: updatedService.totalValue,
         transactionCreated: isBeingCompleted && totalValue > 0,
+      },
+    })
+
+    return updatedService
+  }
+
+  // =============================
+  // ATUALIZAR STATUS
+  // =============================
+  static async updateStatus(
+    serviceId: string,
+    status: ServiceStatus,
+    tenantId: string,
+    userId?: string | null
+  ) {
+    const existingService = await prisma.service.findFirst({
+      where: { id: serviceId, tenantId },
+      include: { customer: true },
+    })
+
+    if (!existingService) {
+      throw new AppError({
+        code: ERROR_CODES.SERVICE_NOT_FOUND,
+        message: 'Servico nao encontrado',
+        statusCode: 404,
+        metadata: { serviceId },
+      })
+    }
+
+    const isBeingCompleted = status === 'CONCLUIDO' && existingService.status !== 'CONCLUIDO'
+    const isLeavingCompleted = status !== 'CONCLUIDO' && existingService.status === 'CONCLUIDO'
+
+    const updatedService = await prisma.$transaction(async (tx) => {
+      const service = await tx.service.update({
+        where: { id: serviceId },
+        data: {
+          status,
+          ...(isBeingCompleted && { completedDate: new Date() }),
+          ...(isLeavingCompleted && { completedDate: null }),
+        },
+        include: serviceDetailInclude,
+      })
+
+      if (isBeingCompleted && service.totalValue > 0) {
+        const existingTransaction = await tx.transaction.findFirst({
+          where: { serviceId, tenantId, type: 'RECEITA' },
+        })
+
+        if (!existingTransaction) {
+          await tx.transaction.create({
+            data: {
+              tenantId,
+              userId: userId ?? null,
+              type: 'RECEITA',
+              category: 'SERVICO',
+              description: `OS #${serviceId.slice(0, 8)} - ${existingService.customer.name}`,
+              amount: service.totalValue,
+              date: new Date(),
+              isPaid: true,
+              paidAt: new Date(),
+              serviceId,
+              reference: serviceId,
+            },
+          })
+        }
+      }
+
+      return service
+    })
+
+    await ActivityService.create({
+      tenantId,
+      userId: userId ?? null,
+      action: isBeingCompleted ? 'SERVICE_COMPLETED' : 'SERVICE_STATUS_UPDATED',
+      description: isBeingCompleted
+        ? `OS #${serviceId.slice(0, 8)} concluida`
+        : `Status da OS #${serviceId.slice(0, 8)} alterado para ${status}`,
+      metadata: {
+        serviceId,
+        previousStatus: existingService.status,
+        status,
+        transactionCreated: isBeingCompleted && existingService.totalValue > 0,
       },
     })
 
