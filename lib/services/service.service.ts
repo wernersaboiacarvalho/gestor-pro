@@ -21,6 +21,13 @@ interface ServiceMechanicData {
   commission: number | string
 }
 
+interface ApprovalMetadata {
+  clientName?: string | null
+  clientDocument?: string | null
+  ip?: string | null
+  userAgent?: string | null
+}
+
 interface ServiceItemData {
   type?: 'LABOR' | 'PART'
   description: string
@@ -407,7 +414,12 @@ export class ServiceService {
   // =============================
   // APROVAR ORCAMENTO
   // =============================
-  static async approveBudget(serviceId: string, tenantId: string, userId?: string) {
+  static async approveBudget(
+    serviceId: string,
+    tenantId: string,
+    userId?: string | null,
+    approval?: ApprovalMetadata
+  ) {
     const existingService = await prisma.service.findFirst({
       where: { id: serviceId, tenantId },
       include: { customer: true },
@@ -437,11 +449,16 @@ export class ServiceService {
         type: 'ORDEM_SERVICO',
         status: existingService.status === 'CANCELADO' ? 'PENDENTE' : 'EM_ANDAMENTO',
         approvedAt: new Date(),
+        clientApprovalName: approval?.clientName || null,
+        clientApprovalDocument: approval?.clientDocument || null,
+        clientApprovalIp: approval?.ip || null,
+        clientApprovalUserAgent: approval?.userAgent || null,
       },
       include: {
         customer: true,
         vehicle: true,
         items: true,
+        attachments: true,
         thirdPartyServices: { include: { provider: true } },
         serviceMechanics: { include: { mechanic: true } },
       },
@@ -456,6 +473,7 @@ export class ServiceService {
         serviceId,
         customerId: existingService.customerId,
         totalValue: existingService.totalValue,
+        clientName: approval?.clientName,
       },
     })
 

@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card } from '@/components/ui/card'
-import { Car, CheckCircle2, Edit, FileText } from 'lucide-react'
+import { Car, CheckCircle2, Edit, FileText, Share2 } from 'lucide-react'
 import type { Service } from '@/types/service.types'
 import { formatCurrency } from '@/lib/formatters/currency'
 
@@ -23,7 +23,9 @@ interface ServiceTableProps {
   searchTerm: string
   onEdit: (service: Service) => void
   onApprove: (service: Service) => void
+  onShare: (service: Service) => void
   approvingId?: string | null
+  sharingId?: string | null
 }
 
 const statusColors = {
@@ -50,7 +52,9 @@ export function ServiceTable({
   searchTerm,
   onEdit,
   onApprove,
+  onShare,
   approvingId,
+  sharingId,
 }: ServiceTableProps) {
   const filteredServices = services.filter(
     (s) =>
@@ -126,6 +130,15 @@ export function ServiceTable({
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Copiar link para cliente"
+                      disabled={sharingId === s.id}
+                      onClick={() => onShare(s)}
+                    >
+                      <Share2 className="h-4 w-4 text-emerald-600" />
+                    </Button>
                     <Button asChild variant="ghost" size="icon" title="Imprimir/PDF">
                       <Link href={`/dashboard/services/${s.id}/print`} target="_blank">
                         <FileText className="h-4 w-4 text-slate-600" />

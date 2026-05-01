@@ -36,7 +36,8 @@ export default withAuth(
       authorized: ({ token, req }) => {
         if (
           req.nextUrl.pathname.startsWith('/login') ||
-          req.nextUrl.pathname.startsWith('/register')
+          req.nextUrl.pathname.startsWith('/register') ||
+          req.nextUrl.pathname.startsWith('/orcamento')
         ) {
           return true
         }

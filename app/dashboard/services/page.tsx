@@ -24,6 +24,7 @@ export default function ServicesPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
+  const [sharingId, setSharingId] = useState<string | null>(null)
 
   const { data: services = [], isLoading, refetch } = useServices()
   const createService = useCreateService()
@@ -113,6 +114,31 @@ export default function ServicesPage() {
     })
   }
 
+  const handleShare = async (service: Service) => {
+    setSharingId(service.id)
+    try {
+      const response = await fetch(`/api/services/${service.id}/public-link`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error?.message || 'Nao foi possivel gerar o link.')
+      }
+
+      const link = data.data.link as string
+      const message = `Ola! Segue o link para visualizar e aprovar seu orcamento: ${link}`
+
+      await navigator.clipboard?.writeText(link)
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+      success('Link copiado!', 'Abrimos o WhatsApp com a mensagem pronta.')
+    } catch (err) {
+      showError('Erro ao compartilhar', err instanceof Error ? err.message : '')
+    } finally {
+      setSharingId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -164,7 +190,9 @@ export default function ServicesPage() {
         searchTerm={searchTerm}
         onEdit={handleEdit}
         onApprove={handleApprove}
+        onShare={handleShare}
         approvingId={approveService.isPending ? approveService.variables : null}
+        sharingId={sharingId}
       />
 
       <ServiceForm
