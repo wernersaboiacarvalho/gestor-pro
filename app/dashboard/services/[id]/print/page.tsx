@@ -83,6 +83,9 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
         attachments: {
           orderBy: { createdAt: 'asc' },
         },
+        checklistItems: {
+          orderBy: [{ completed: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+        },
         thirdPartyServices: { include: { provider: true } },
         serviceMechanics: { include: { mechanic: true } },
       },
@@ -111,6 +114,7 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
   const status = statusLabels[service.status as keyof typeof statusLabels] || service.status
   const photosForPdf = service.attachments.slice(0, 9)
   const hiddenPhotosCount = Math.max(service.attachments.length - photosForPdf.length, 0)
+  const checklistCompleted = service.checklistItems.filter((item) => item.completed).length
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
@@ -402,6 +406,38 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
                 )}
               </div>
             )}
+          </section>
+        )}
+
+        {service.checklistItems.length > 0 && (
+          <section className="border-b p-8">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Checklist de execucao
+              </h2>
+              <span className="text-xs text-slate-500">
+                {checklistCompleted}/{service.checklistItems.length} concluida(s)
+              </span>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2">
+              {service.checklistItems.map((item) => (
+                <div key={item.id} className="avoid-break flex items-start gap-2 text-sm">
+                  <span
+                    className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded border text-[10px] ${
+                      item.completed
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-slate-300 text-transparent'
+                    }`}
+                  >
+                    OK
+                  </span>
+                  <span className={item.completed ? 'text-slate-700' : 'text-slate-500'}>
+                    {item.title}
+                  </span>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 

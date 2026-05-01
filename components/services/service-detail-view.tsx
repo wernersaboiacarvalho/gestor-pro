@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Separator } from '@/components/ui/separator'
+import { ServiceChecklist } from '@/components/services/service-checklist'
 import { ServiceForm } from '@/components/services/service-form'
 import { StatusBadge } from '@/components/services/status-badge'
 import { TypeBadge } from '@/components/services/type-badge'
@@ -56,6 +57,11 @@ const activityLabels: Record<string, string> = {
   SERVICE_PUBLIC_LINK_CREATED: 'Link publico gerado',
   SERVICE_ATTACHMENT_ADDED: 'Foto adicionada',
   SERVICE_ATTACHMENT_REMOVED: 'Foto removida',
+  SERVICE_CHECKLIST_ITEM_CREATED: 'Tarefa adicionada',
+  SERVICE_CHECKLIST_ITEM_UPDATED: 'Tarefa atualizada',
+  SERVICE_CHECKLIST_ITEM_COMPLETED: 'Tarefa concluida',
+  SERVICE_CHECKLIST_ITEM_REOPENED: 'Tarefa reaberta',
+  SERVICE_CHECKLIST_ITEM_DELETED: 'Tarefa removida',
   'service.updated': 'Documento atualizado',
 }
 
@@ -98,6 +104,7 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
   )
   const attachments = service?.attachments || []
   const serviceMechanics = service?.serviceMechanics || []
+  const checklistItems = service?.checklistItems || []
 
   const totals = useMemo(() => {
     const parts = items
@@ -485,6 +492,8 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
               ))}
             </CardContent>
           </Card>
+
+          <ServiceChecklist serviceId={service.id} items={checklistItems} />
 
           <Card>
             <CardHeader>

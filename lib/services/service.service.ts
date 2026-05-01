@@ -69,6 +69,13 @@ const serviceDetailInclude = {
   vehicle: true,
   items: true,
   attachments: { orderBy: { createdAt: 'desc' as const } },
+  checklistItems: {
+    orderBy: [
+      { completed: 'asc' as const },
+      { sortOrder: 'asc' as const },
+      { createdAt: 'asc' as const },
+    ],
+  },
   thirdPartyServices: { include: { provider: true } },
   serviceMechanics: { include: { mechanic: true } },
   user: {

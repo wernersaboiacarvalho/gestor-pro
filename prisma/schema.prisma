@@ -283,6 +283,7 @@ model Service {
   serviceMechanics   ServiceMechanic[] // NOVO! Múltiplos mecânicos
   thirdPartyServices ThirdPartyService[] // NOVO! Serviços terceirizados
   attachments        ServiceAttachment[]
+  checklistItems     ServiceChecklistItem[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -309,6 +310,25 @@ model ServiceAttachment {
   @@index([serviceId])
   @@index([tenantId])
   @@index([createdAt])
+}
+
+model ServiceChecklistItem {
+  id            String    @id @default(cuid())
+  serviceId     String
+  service       Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tenantId      String
+  title         String
+  completed     Boolean   @default(false)
+  completedAt   DateTime?
+  completedById String?
+  createdById   String?
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([serviceId])
+  @@index([tenantId])
+  @@index([completed])
 }
 
 model ServiceItem {

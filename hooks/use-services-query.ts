@@ -7,6 +7,7 @@ import type {
   Service,
   ServiceActivity,
   ServiceAttachment,
+  ServiceChecklistItem,
   ServiceFormSubmitData,
 } from '@/types/service.types'
 import type { PaginatedResponse } from '@/types/pagination'
@@ -123,6 +124,64 @@ export function useServiceActivities(serviceId: string | null | undefined) {
       return Array.isArray(response.activities) ? response.activities : []
     },
     enabled: Boolean(serviceId),
+  })
+}
+
+export function useCreateServiceChecklistItem(serviceId: string | null | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ title }: { title: string }) => {
+      if (!serviceId) throw new Error('Documento sem identificador.')
+      return api.post<ServiceChecklistItem>(`/api/services/${serviceId}/checklist`, { title })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY, serviceId] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', serviceId] })
+    },
+  })
+}
+
+export function useUpdateServiceChecklistItem(serviceId: string | null | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      itemId,
+      title,
+      completed,
+    }: {
+      itemId: string
+      title?: string
+      completed?: boolean
+    }) => {
+      if (!serviceId) throw new Error('Documento sem identificador.')
+      return api.patch<ServiceChecklistItem>(`/api/services/${serviceId}/checklist/${itemId}`, {
+        title,
+        completed,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY, serviceId] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', serviceId] })
+    },
+  })
+}
+
+export function useDeleteServiceChecklistItem(serviceId: string | null | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (itemId: string) => {
+      if (!serviceId) throw new Error('Documento sem identificador.')
+      return api.delete<{ success: boolean; itemId: string }>(
+        `/api/services/${serviceId}/checklist/${itemId}`
+      )
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY, serviceId] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', serviceId] })
+    },
   })
 }
 

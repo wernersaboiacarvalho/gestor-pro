@@ -73,6 +73,20 @@ export interface ServiceAttachment {
   createdAt: string
 }
 
+export interface ServiceChecklistItem {
+  id: string
+  serviceId: string
+  tenantId: string
+  title: string
+  completed: boolean
+  completedAt: string | null
+  completedById: string | null
+  createdById: string | null
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PendingServicePhoto {
   id: string
   file: File
@@ -91,6 +105,7 @@ export interface Service {
   items: ServiceItem[]
   thirdPartyServices?: ThirdPartyService[]
   attachments?: ServiceAttachment[]
+  checklistItems?: ServiceChecklistItem[]
   description: string
   status: string
   totalValue: number
