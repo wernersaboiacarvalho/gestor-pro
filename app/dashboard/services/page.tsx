@@ -18,6 +18,7 @@ import {
   useServiceFormData,
   uploadServiceAttachment,
 } from '@/hooks/use-services-query'
+import { matchesServiceAttentionFilter } from '@/lib/services/service-operational-flags'
 import type { PendingServicePhoto, Service, ServiceFormSubmitData } from '@/types/service.types'
 
 export default function ServicesPage() {
@@ -87,46 +88,6 @@ export default function ServicesPage() {
     )
   }
 
-  const startOfToday = () => {
-    const date = new Date()
-    date.setHours(0, 0, 0, 0)
-    return date
-  }
-
-  const isOpenService = (service: Service) =>
-    service.status !== 'CONCLUIDO' && service.status !== 'CANCELADO'
-
-  const isAttentionMatch = (service: Service) => {
-    if (attentionFilter === 'all') return true
-
-    if (attentionFilter === 'overdue') {
-      if (!service.scheduledDate || !isOpenService(service)) return false
-      return new Date(service.scheduledDate) < startOfToday()
-    }
-
-    if (attentionFilter === 'third-party') {
-      return (service.thirdPartyServices || []).some((item) => item.status !== 'RETORNADO')
-    }
-
-    if (attentionFilter === 'without-checklist') {
-      return (
-        service.type === 'ORDEM_SERVICO' &&
-        isOpenService(service) &&
-        (service.checklistItems || []).length === 0
-      )
-    }
-
-    if (attentionFilter === 'stale') {
-      const date = new Date(service.updatedAt || service.createdAt || '')
-      if (Number.isNaN(date.getTime())) return false
-      const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-      return service.type === 'ORDEM_SERVICO' && service.status === 'EM_ANDAMENTO' && days >= 3
-    }
-
-    return true
-  }
-
   const visibleServices = services
     .filter((service) => {
       if (typeFilter === 'budgets') return service.type === 'ORCAMENTO'
@@ -134,7 +95,7 @@ export default function ServicesPage() {
       return true
     })
     .filter((service) => (statusFilter === 'all' ? true : service.status === statusFilter))
-    .filter(isAttentionMatch)
+    .filter((service) => matchesServiceAttentionFilter(service, attentionFilter))
 
   const stats = {
     total: visibleServices.length,

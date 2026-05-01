@@ -1,10 +1,9 @@
-// components/services/service-table.tsx
-
 'use client'
 
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -13,10 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Card } from '@/components/ui/card'
-import { Car, CheckCircle2, Edit, Eye, FileText, Share2 } from 'lucide-react'
-import type { Service } from '@/types/service.types'
 import { formatCurrency } from '@/lib/formatters/currency'
+import { getServiceOperationalFlags } from '@/lib/services/service-operational-flags'
+import type { Service } from '@/types/service.types'
+import { Car, CheckCircle2, Edit, Eye, FileText, Share2 } from 'lucide-react'
 
 interface ServiceTableProps {
   services: Service[]
@@ -37,13 +36,13 @@ const statusColors = {
 
 const statusLabels = {
   PENDENTE: 'Pendente',
-  EM_ANDAMENTO: 'Em Andamento',
-  CONCLUIDO: 'Concluído',
+  EM_ANDAMENTO: 'Em andamento',
+  CONCLUIDO: 'Concluido',
   CANCELADO: 'Cancelado',
 } as const
 
 const typeLabels = {
-  ORCAMENTO: 'Orçamento',
+  ORCAMENTO: 'Orcamento',
   ORDEM_SERVICO: 'O.S.',
 }
 
@@ -56,11 +55,12 @@ export function ServiceTable({
   approvingId,
   sharingId,
 }: ServiceTableProps) {
+  const normalizedSearch = searchTerm.toLowerCase()
   const filteredServices = services.filter(
-    (s) =>
-      s.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.vehicle?.plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.description.toLowerCase().includes(searchTerm.toLowerCase())
+    (service) =>
+      service.customer.name.toLowerCase().includes(normalizedSearch) ||
+      service.vehicle?.plate.toLowerCase().includes(normalizedSearch) ||
+      service.description.toLowerCase().includes(normalizedSearch)
   )
 
   return (
@@ -69,90 +69,118 @@ export function ServiceTable({
         <TableHeader>
           <TableRow>
             <TableHead>Tipo</TableHead>
-            <TableHead>Cliente / Veículo</TableHead>
+            <TableHead>Cliente / Veiculo</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Atencao</TableHead>
             <TableHead className="text-right">Total</TableHead>
-            <TableHead className="text-center">Ações</TableHead>
+            <TableHead className="text-center">Acoes</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredServices.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                Nenhum serviço encontrado
+              <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                Nenhum servico encontrado
               </TableCell>
             </TableRow>
           ) : (
-            filteredServices.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={
-                      s.type === 'ORCAMENTO'
-                        ? 'text-amber-600 border-amber-200'
-                        : 'text-blue-600 border-blue-200'
-                    }
-                  >
-                    {typeLabels[s.type]}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="font-semibold">{s.customer.name}</div>
-                  {s.vehicle && (
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Car className="h-3 w-3" />
-                      {s.vehicle.plate} - {s.vehicle.brand} {s.vehicle.model}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge className={statusColors[s.status as keyof typeof statusColors]}>
-                    {statusLabels[s.status as keyof typeof statusLabels]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right font-bold">
-                  {formatCurrency(s.totalValue)}
-                </TableCell>
-                <TableCell className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Button asChild variant="ghost" size="icon" title="Ver detalhes">
-                      <Link href={`/dashboard/services/${s.id}`}>
-                        <Eye className="h-4 w-4 text-slate-700" />
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="icon" title="Editar" onClick={() => onEdit(s)}>
-                      <Edit className="h-4 w-4 text-blue-600" />
-                    </Button>
-                    {s.type === 'ORCAMENTO' && (
+            filteredServices.map((service) => {
+              const flags = getServiceOperationalFlags(service)
+
+              return (
+                <TableRow key={service.id}>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={
+                        service.type === 'ORCAMENTO'
+                          ? 'border-amber-200 text-amber-600'
+                          : 'border-blue-200 text-blue-600'
+                      }
+                    >
+                      {typeLabels[service.type]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-semibold">{service.customer.name}</div>
+                    {service.vehicle && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Car className="h-3 w-3" />
+                        {service.vehicle.plate} - {service.vehicle.brand} {service.vehicle.model}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={statusColors[service.status as keyof typeof statusColors]}>
+                      {statusLabels[service.status as keyof typeof statusLabels]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {flags.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    ) : (
+                      <div className="flex max-w-[220px] flex-wrap gap-1">
+                        {flags.slice(0, 3).map((flag) => (
+                          <Badge
+                            key={flag.key}
+                            variant="outline"
+                            className={flag.className}
+                            title={flag.description}
+                          >
+                            {flag.label}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-bold">
+                    {formatCurrency(service.totalValue)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Button asChild variant="ghost" size="icon" title="Ver detalhes">
+                        <Link href={`/dashboard/services/${service.id}`}>
+                          <Eye className="h-4 w-4 text-slate-700" />
+                        </Link>
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        title="Aprovar e virar OS"
-                        disabled={approvingId === s.id}
-                        onClick={() => onApprove(s)}
+                        title="Editar"
+                        onClick={() => onEdit(service)}
                       >
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <Edit className="h-4 w-4 text-blue-600" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Copiar link para cliente"
-                      disabled={sharingId === s.id}
-                      onClick={() => onShare(s)}
-                    >
-                      <Share2 className="h-4 w-4 text-emerald-600" />
-                    </Button>
-                    <Button asChild variant="ghost" size="icon" title="Imprimir/PDF">
-                      <Link href={`/dashboard/services/${s.id}/print`} target="_blank">
-                        <FileText className="h-4 w-4 text-slate-600" />
-                      </Link>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
+                      {service.type === 'ORCAMENTO' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Aprovar e virar OS"
+                          disabled={approvingId === service.id}
+                          onClick={() => onApprove(service)}
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Copiar link para cliente"
+                        disabled={sharingId === service.id}
+                        onClick={() => onShare(service)}
+                      >
+                        <Share2 className="h-4 w-4 text-emerald-600" />
+                      </Button>
+                      <Button asChild variant="ghost" size="icon" title="Imprimir/PDF">
+                        <Link href={`/dashboard/services/${service.id}/print`} target="_blank">
+                          <FileText className="h-4 w-4 text-slate-600" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })
           )}
         </TableBody>
       </Table>

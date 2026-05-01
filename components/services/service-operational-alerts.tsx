@@ -12,6 +12,12 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/formatters/currency'
+import {
+  daysSince,
+  getServiceOperationalFlags,
+  isOpenService,
+  isScheduledOverdue,
+} from '@/lib/services/service-operational-flags'
 import type { Service } from '@/types/service.types'
 
 interface ServiceOperationalAlertsProps {
@@ -47,34 +53,6 @@ const badgeClasses: Record<AlertTone, string> = {
   violet: 'border-violet-300 bg-white text-violet-700',
 }
 
-function startOfToday() {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function daysSince(value?: string | null) {
-  if (!value) return 0
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 0
-
-  return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-function isOpenService(service: Service) {
-  return service.status !== 'CONCLUIDO' && service.status !== 'CANCELADO'
-}
-
-function isScheduledOverdue(service: Service) {
-  if (!service.scheduledDate || !isOpenService(service)) return false
-
-  const scheduledDate = new Date(service.scheduledDate)
-  if (Number.isNaN(scheduledDate.getTime())) return false
-
-  return scheduledDate < startOfToday()
-}
-
 function firstServiceHref(services: Service[]) {
   return services[0] ? `/dashboard/services/${services[0].id}` : undefined
 }
@@ -95,13 +73,10 @@ export function ServiceOperationalAlerts({
       daysSince(service.updatedAt || service.createdAt) >= 3
   )
   const thirdPartyPending = services.filter((service) =>
-    (service.thirdPartyServices || []).some((item) => item.status !== 'RETORNADO')
+    getServiceOperationalFlags(service).some((flag) => flag.key === 'third-party')
   )
-  const ordersWithoutChecklist = services.filter(
-    (service) =>
-      service.type === 'ORDEM_SERVICO' &&
-      isOpenService(service) &&
-      (service.checklistItems || []).length === 0
+  const ordersWithoutChecklist = services.filter((service) =>
+    getServiceOperationalFlags(service).some((flag) => flag.key === 'without-checklist')
   )
 
   const budgetTotal = waitingBudgets.reduce((sum, service) => sum + service.totalValue, 0)
