@@ -10,6 +10,7 @@ import { ServiceService } from '@/lib/services/service.service'
 const approveSchema = z.object({
   name: z.string().min(3, 'Informe seu nome').max(120),
   document: z.string().max(40).optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
 })
 
 interface RouteParams {
@@ -33,6 +34,7 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
   const service = await ServiceService.approveBudget(payload.sid, payload.tid, null, {
     clientName: data.name,
     clientDocument: data.document || null,
+    clientNotes: data.notes || null,
     ip,
     userAgent,
   })

@@ -5,21 +5,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { CheckCircle2 } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { CheckCircle2, MessageCircle } from 'lucide-react'
 
 interface PublicServiceApprovalFormProps {
   token: string
   disabled: boolean
   alreadyApproved: boolean
+  whatsappUrl?: string | null
 }
 
 export function PublicServiceApprovalForm({
   token,
   disabled,
   alreadyApproved,
+  whatsappUrl,
 }: PublicServiceApprovalFormProps) {
   const [name, setName] = useState('')
   const [document, setDocument] = useState('')
+  const [notes, setNotes] = useState('')
   const [accepted, setAccepted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [approved, setApproved] = useState(alreadyApproved)
@@ -38,7 +42,7 @@ export function PublicServiceApprovalForm({
       const response = await fetch(`/api/public/services/${token}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, document }),
+        body: JSON.stringify({ name, document, notes }),
       })
       const data = await response.json()
 
@@ -106,17 +110,41 @@ export function PublicServiceApprovalForm({
         </div>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-2 text-sm">
+      <div className="space-y-2">
+        <Label htmlFor="approval-notes">Observacao para a oficina</Label>
+        <Textarea
+          id="approval-notes"
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          placeholder="Ex: pode executar, mas me avise antes de trocar alguma peca adicional."
+          rows={3}
+        />
+      </div>
+
+      <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-slate-50 p-3 text-sm">
         <Checkbox checked={accepted} onCheckedChange={(checked) => setAccepted(Boolean(checked))} />
-        <span>Confirmo que li e aprovo os itens, fotos e valores deste orcamento.</span>
+        <span>
+          Confirmo que li este orcamento, incluindo itens, fotos, servicos externos e valores, e
+          autorizo a oficina a converter este documento em ordem de servico.
+        </span>
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <Button onClick={submitApproval} disabled={isSubmitting} className="w-full sm:w-auto">
-        <CheckCircle2 className="mr-2 h-4 w-4" />
-        {isSubmitting ? 'Aprovando...' : 'Aprovar orcamento'}
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button onClick={submitApproval} disabled={isSubmitting} className="w-full sm:w-auto">
+          <CheckCircle2 className="mr-2 h-4 w-4" />
+          {isSubmitting ? 'Aprovando...' : 'Aprovar orcamento'}
+        </Button>
+        {whatsappUrl && (
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <a href={whatsappUrl} target="_blank" rel="noreferrer">
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Tenho duvidas
+            </a>
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

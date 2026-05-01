@@ -24,6 +24,7 @@ interface ServiceMechanicData {
 interface ApprovalMetadata {
   clientName?: string | null
   clientDocument?: string | null
+  clientNotes?: string | null
   ip?: string | null
   userAgent?: string | null
 }
@@ -451,6 +452,7 @@ export class ServiceService {
         approvedAt: new Date(),
         clientApprovalName: approval?.clientName || null,
         clientApprovalDocument: approval?.clientDocument || null,
+        clientApprovalNotes: approval?.clientNotes || null,
         clientApprovalIp: approval?.ip || null,
         clientApprovalUserAgent: approval?.userAgent || null,
       },
@@ -474,6 +476,7 @@ export class ServiceService {
         customerId: existingService.customerId,
         totalValue: existingService.totalValue,
         clientName: approval?.clientName,
+        clientNotes: approval?.clientNotes,
       },
     })
 

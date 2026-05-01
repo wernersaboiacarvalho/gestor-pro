@@ -13,6 +13,17 @@ function formatDate(value: Date | string | null | undefined) {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(value))
 }
 
+function buildWhatsappUrl(phone: string | null | undefined, serviceId: string) {
+  if (!phone) return null
+
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return null
+
+  const brazilPhone = digits.startsWith('55') ? digits : `55${digits}`
+  const message = `Ola! Tenho duvidas sobre o orcamento #${serviceId.slice(0, 8)}.`
+  return `https://wa.me/${brazilPhone}?text=${encodeURIComponent(message)}`
+}
+
 export default async function PublicBudgetPage({ params }: PublicBudgetPageProps) {
   const { token } = await params
   const payload = verifyPublicServiceToken(token)
@@ -57,6 +68,7 @@ export default async function PublicBudgetPage({ params }: PublicBudgetPageProps
     (sum, item) => sum + Number(item.chargedValue ?? 0),
     0
   )
+  const whatsappUrl = buildWhatsappUrl(service.tenant.phone, service.id)
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-950">
@@ -180,6 +192,7 @@ export default async function PublicBudgetPage({ params }: PublicBudgetPageProps
             token={token}
             disabled={!canApprove}
             alreadyApproved={Boolean(service.approvedAt)}
+            whatsappUrl={whatsappUrl}
           />
         </section>
       </div>

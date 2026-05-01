@@ -270,6 +270,7 @@ model Service {
   clientApprovalDocument  String?
   clientApprovalIp        String?
   clientApprovalUserAgent String?
+  clientApprovalNotes     String?
   totalValue              Float         @default(0)
   discount                Float?        @default(0)
   notes                   String?
