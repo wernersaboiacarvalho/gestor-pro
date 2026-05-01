@@ -54,8 +54,8 @@ function servicesHref(filter: string) {
   }
   const attention = attentionByFilter[filter]
 
-  if (filter === 'waiting-budgets') return '/dashboard/services?type=budgets'
-  if (attention) return `/dashboard/services?type=orders&attention=${attention}`
+  if (filter === 'waiting-budgets') return '/dashboard/services?type=budgets&view=board'
+  if (attention) return `/dashboard/services?type=orders&attention=${attention}&view=board`
 
   return `/dashboard/services?type=${filter}`
 }

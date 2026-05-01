@@ -8,12 +8,14 @@ import { Search, Plus } from 'lucide-react'
 import { ServiceStats } from '@/components/services/service-stats'
 import { ServiceForm } from '@/components/services/service-form'
 import { ServiceTable } from '@/components/services/service-table'
+import { ServiceBoard } from '@/components/services/service-board'
 import { ServiceOperationalAlerts } from '@/components/services/service-operational-alerts'
 import { useToast } from '@/hooks/use-toast'
 import {
   useServices,
   useCreateService,
   useUpdateService,
+  useUpdateServiceStatus,
   useApproveService,
   useServiceFormData,
   uploadServiceAttachment,
@@ -26,6 +28,7 @@ export default function ServicesPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [attentionFilter, setAttentionFilter] = useState('all')
+  const [viewMode, setViewMode] = useState<'table' | 'board'>('table')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
   const [sharingId, setSharingId] = useState<string | null>(null)
@@ -33,6 +36,7 @@ export default function ServicesPage() {
   const { data: services = [], isLoading, refetch } = useServices()
   const createService = useCreateService()
   const updateService = useUpdateService()
+  const updateStatus = useUpdateServiceStatus()
   const approveService = useApproveService()
   const { customers, vehicles, mechanics, thirdPartyProviders } = useServiceFormData()
   const { success, error: showError } = useToast()
@@ -42,6 +46,7 @@ export default function ServicesPage() {
     const type = params.get('type')
     const status = params.get('status')
     const attention = params.get('attention')
+    const view = params.get('view')
 
     if (type === 'budgets' || type === 'orders' || type === 'all') {
       setTypeFilter(type)
@@ -64,21 +69,32 @@ export default function ServicesPage() {
     ) {
       setAttentionFilter(attention)
     }
+    if (view === 'table' || view === 'board') {
+      setViewMode(view)
+    }
   }, [])
 
-  const updateFilters = (updates: { type?: string; status?: string; attention?: string }) => {
+  const updateFilters = (updates: {
+    type?: string
+    status?: string
+    attention?: string
+    view?: 'table' | 'board'
+  }) => {
     const nextType = updates.type ?? typeFilter
     const nextStatus = updates.status ?? statusFilter
     const nextAttention = updates.attention ?? attentionFilter
+    const nextView = updates.view ?? viewMode
 
     setTypeFilter(nextType)
     setStatusFilter(nextStatus)
     setAttentionFilter(nextAttention)
+    setViewMode(nextView)
 
     const params = new URLSearchParams()
     if (nextType !== 'all') params.set('type', nextType)
     if (nextStatus !== 'all') params.set('status', nextStatus)
     if (nextAttention !== 'all') params.set('attention', nextAttention)
+    if (nextView !== 'table') params.set('view', nextView)
 
     const query = params.toString()
     window.history.replaceState(
@@ -106,6 +122,11 @@ export default function ServicesPage() {
       .filter((s) => s.status === 'CONCLUIDO')
       .reduce((sum, s) => sum + s.totalValue, 0),
   }
+  const hasActiveFilters =
+    searchTerm.trim().length > 0 ||
+    typeFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    attentionFilter !== 'all'
 
   const handleEdit = (service: Service) => {
     setEditingService(service)
@@ -197,6 +218,21 @@ export default function ServicesPage() {
     }
   }
 
+  const handleStatusChange = (service: Service, status: Service['status']) => {
+    if (service.status === status) return
+
+    updateStatus.mutate(
+      { id: service.id, status },
+      {
+        onSuccess: () => {
+          refetch()
+          success('Status atualizado!')
+        },
+        onError: (err) => showError('Erro ao mudar status', err.message),
+      }
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -257,6 +293,43 @@ export default function ServicesPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">
+          {visibleServices.length} documento(s) nesta visualizacao.
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('')
+                updateFilters({ type: 'all', status: 'all', attention: 'all' })
+              }}
+            >
+              Limpar filtros
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => updateFilters({ view: 'table' })}
+          >
+            Tabela
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === 'board' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => updateFilters({ view: 'board' })}
+          >
+            Painel
+          </Button>
+        </div>
+      </div>
+
       <div className="flex flex-col gap-3 rounded-md border bg-muted/20 p-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-2">
           {[
@@ -304,15 +377,29 @@ export default function ServicesPage() {
         </div>
       </div>
 
-      <ServiceTable
-        services={visibleServices}
-        searchTerm={searchTerm}
-        onEdit={handleEdit}
-        onApprove={handleApprove}
-        onShare={handleShare}
-        approvingId={approveService.isPending ? approveService.variables : null}
-        sharingId={sharingId}
-      />
+      {viewMode === 'table' ? (
+        <ServiceTable
+          services={visibleServices}
+          searchTerm={searchTerm}
+          onEdit={handleEdit}
+          onApprove={handleApprove}
+          onShare={handleShare}
+          approvingId={approveService.isPending ? approveService.variables : null}
+          sharingId={sharingId}
+        />
+      ) : (
+        <ServiceBoard
+          services={visibleServices}
+          searchTerm={searchTerm}
+          onEdit={handleEdit}
+          onApprove={handleApprove}
+          onShare={handleShare}
+          onStatusChange={handleStatusChange}
+          approvingId={approveService.isPending ? approveService.variables : null}
+          sharingId={sharingId}
+          statusUpdatingId={updateStatus.isPending ? updateStatus.variables?.id : null}
+        />
+      )}
 
       <ServiceForm
         open={dialogOpen}
