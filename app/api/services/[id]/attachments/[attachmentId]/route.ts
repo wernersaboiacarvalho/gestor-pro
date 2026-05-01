@@ -1,9 +1,8 @@
-import { unlink } from 'fs/promises'
-import path from 'path'
 import { getTenantSession } from '@/lib/tenant-guard'
 import { withErrorHandling } from '@/lib/http/with-error-handling'
 import { ApiResponse } from '@/lib/http/api-response'
 import { prisma } from '@/lib/prisma'
+import { deleteStoredServiceAttachment } from '@/lib/storage/service-attachments'
 
 interface RouteParams {
   params: Promise<{ id: string; attachmentId: string }>
@@ -26,14 +25,8 @@ export const DELETE = withErrorHandling(async (_req: Request, { params }: RouteP
     return ApiResponse.error('SERVICE_NOT_FOUND', 'Foto nao encontrada', 404)
   }
 
-  await prisma.serviceAttachment.delete({
-    where: { id: attachment.id },
-  })
-
-  if (attachment.url.startsWith('/uploads/')) {
-    const filePath = path.join(process.cwd(), 'public', attachment.url.replace(/^\//, ''))
-    await unlink(filePath).catch(() => undefined)
-  }
+  await deleteStoredServiceAttachment(attachment)
+  await prisma.serviceAttachment.delete({ where: { id: attachment.id } })
 
   await prisma.activity.create({
     data: {

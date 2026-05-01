@@ -63,6 +63,8 @@ export interface ServiceAttachment {
   serviceId: string
   tenantId: string
   url: string
+  publicId: string | null
+  storageProvider: string
   fileName: string | null
   mimeType: string
   size: number

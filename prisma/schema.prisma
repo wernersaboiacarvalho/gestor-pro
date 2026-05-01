@@ -287,17 +287,19 @@ model Service {
 }
 
 model ServiceAttachment {
-  id          String   @id @default(cuid())
-  serviceId   String
-  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  tenantId    String
-  url         String
-  fileName    String?
-  mimeType    String
-  size        Int
-  caption     String?
-  createdById String?
-  createdAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  serviceId       String
+  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  tenantId        String
+  url             String
+  publicId        String?
+  storageProvider String   @default("LOCAL")
+  fileName        String?
+  mimeType        String
+  size            Int
+  caption         String?
+  createdById     String?
+  createdAt       DateTime @default(now())
 
   @@index([serviceId])
   @@index([tenantId])
