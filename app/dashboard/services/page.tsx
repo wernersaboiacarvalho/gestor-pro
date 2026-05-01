@@ -8,6 +8,7 @@ import { Search, Plus } from 'lucide-react'
 import { ServiceStats } from '@/components/services/service-stats'
 import { ServiceForm } from '@/components/services/service-form'
 import { ServiceTable } from '@/components/services/service-table'
+import { ServiceOperationalAlerts } from '@/components/services/service-operational-alerts'
 import { useToast } from '@/hooks/use-toast'
 import {
   useServices,
@@ -164,6 +165,8 @@ export default function ServicesPage() {
       </div>
 
       <ServiceStats {...stats} />
+
+      <ServiceOperationalAlerts services={services} onFilterChange={setTypeFilter} />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Tabs value={typeFilter} onValueChange={setTypeFilter}>

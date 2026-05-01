@@ -108,6 +108,7 @@ export class ServiceService {
         customer: true,
         vehicle: true,
         items: true,
+        checklistItems: true,
         thirdPartyServices: { include: { provider: true } },
         serviceMechanics: { include: { mechanic: true } },
       },
