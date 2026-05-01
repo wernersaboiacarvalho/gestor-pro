@@ -17,6 +17,7 @@ import type { Service } from '@/types/service.types'
 interface ServiceOperationalAlertsProps {
   services: Service[]
   onFilterChange: (filter: string) => void
+  onAttentionFilterChange: (filter: string) => void
 }
 
 type AlertTone = 'amber' | 'blue' | 'red' | 'violet'
@@ -81,6 +82,7 @@ function firstServiceHref(services: Service[]) {
 export function ServiceOperationalAlerts({
   services,
   onFilterChange,
+  onAttentionFilterChange,
 }: ServiceOperationalAlertsProps) {
   const waitingBudgets = services.filter(
     (service) => service.type === 'ORCAMENTO' && isOpenService(service)
@@ -124,7 +126,7 @@ export function ServiceOperationalAlerts({
         description: 'Servicos abertos com data programada anterior a hoje.',
         count: overdueScheduled.length,
         href: firstServiceHref(overdueScheduled),
-        filter: 'orders',
+        filter: 'overdue',
       },
       {
         id: 'third-party',
@@ -134,7 +136,7 @@ export function ServiceOperationalAlerts({
         description: 'OS com servicos externos ainda sem retorno para a oficina.',
         count: thirdPartyPending.length,
         href: firstServiceHref(thirdPartyPending),
-        filter: 'orders',
+        filter: 'third-party',
       },
       {
         id: 'checklist',
@@ -144,7 +146,7 @@ export function ServiceOperationalAlerts({
         description: 'Ordens abertas que ainda nao tem tarefas de execucao.',
         count: ordersWithoutChecklist.length,
         href: firstServiceHref(ordersWithoutChecklist),
-        filter: 'orders',
+        filter: 'without-checklist',
       },
       {
         id: 'stale',
@@ -154,7 +156,7 @@ export function ServiceOperationalAlerts({
         description: 'Servicos em andamento sem atualizacao recente.',
         count: staleOrders.length,
         href: firstServiceHref(staleOrders),
-        filter: 'orders',
+        filter: 'stale',
       },
     ] satisfies OperationalAlert[]
   ).filter((alert) => alert.count > 0)
@@ -205,7 +207,11 @@ export function ServiceOperationalAlerts({
                       variant="outline"
                       size="sm"
                       className="bg-white/80"
-                      onClick={() => onFilterChange(alert.filter!)}
+                      onClick={() =>
+                        alert.filter === 'budgets'
+                          ? onFilterChange('budgets')
+                          : onAttentionFilterChange(alert.filter!)
+                      }
                     >
                       Filtrar
                     </Button>

@@ -45,6 +45,18 @@ const severityLabels = {
 } as const
 
 function servicesHref(filter: string) {
+  const attentionByFilter: Record<string, string> = {
+    'waiting-budgets': '',
+    'overdue-scheduled': 'overdue',
+    'third-party-pending': 'third-party',
+    'orders-without-checklist': 'without-checklist',
+    'stale-orders': 'stale',
+  }
+  const attention = attentionByFilter[filter]
+
+  if (filter === 'waiting-budgets') return '/dashboard/services?type=budgets'
+  if (attention) return `/dashboard/services?type=orders&attention=${attention}`
+
   return `/dashboard/services?type=${filter}`
 }
 
@@ -92,7 +104,7 @@ export function OperationalAlertsSummary({ alerts }: OperationalAlertsSummaryPro
                     <p className="mt-1 text-sm opacity-80">{alert.description}</p>
                   </div>
                   <Button asChild variant="outline" size="sm" className="bg-white/80">
-                    <Link href={servicesHref(alert.filter)}>
+                    <Link href={servicesHref(alert.id)}>
                       Ver lista
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>

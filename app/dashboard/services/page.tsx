@@ -23,6 +23,8 @@ import type { PendingServicePhoto, Service, ServiceFormSubmitData } from '@/type
 export default function ServicesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [attentionFilter, setAttentionFilter] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
   const [sharingId, setSharingId] = useState<string | null>(null)
@@ -35,18 +37,104 @@ export default function ServicesPage() {
   const { success, error: showError } = useToast()
 
   useEffect(() => {
-    const type = new URLSearchParams(window.location.search).get('type')
+    const params = new URLSearchParams(window.location.search)
+    const type = params.get('type')
+    const status = params.get('status')
+    const attention = params.get('attention')
 
     if (type === 'budgets' || type === 'orders' || type === 'all') {
       setTypeFilter(type)
     }
+    if (
+      status === 'PENDENTE' ||
+      status === 'EM_ANDAMENTO' ||
+      status === 'CONCLUIDO' ||
+      status === 'CANCELADO' ||
+      status === 'all'
+    ) {
+      setStatusFilter(status)
+    }
+    if (
+      attention === 'overdue' ||
+      attention === 'third-party' ||
+      attention === 'without-checklist' ||
+      attention === 'stale' ||
+      attention === 'all'
+    ) {
+      setAttentionFilter(attention)
+    }
   }, [])
 
-  const visibleServices = services.filter((service) => {
-    if (typeFilter === 'budgets') return service.type === 'ORCAMENTO'
-    if (typeFilter === 'orders') return service.type === 'ORDEM_SERVICO'
+  const updateFilters = (updates: { type?: string; status?: string; attention?: string }) => {
+    const nextType = updates.type ?? typeFilter
+    const nextStatus = updates.status ?? statusFilter
+    const nextAttention = updates.attention ?? attentionFilter
+
+    setTypeFilter(nextType)
+    setStatusFilter(nextStatus)
+    setAttentionFilter(nextAttention)
+
+    const params = new URLSearchParams()
+    if (nextType !== 'all') params.set('type', nextType)
+    if (nextStatus !== 'all') params.set('status', nextStatus)
+    if (nextAttention !== 'all') params.set('attention', nextAttention)
+
+    const query = params.toString()
+    window.history.replaceState(
+      null,
+      '',
+      query ? `/dashboard/services?${query}` : '/dashboard/services'
+    )
+  }
+
+  const startOfToday = () => {
+    const date = new Date()
+    date.setHours(0, 0, 0, 0)
+    return date
+  }
+
+  const isOpenService = (service: Service) =>
+    service.status !== 'CONCLUIDO' && service.status !== 'CANCELADO'
+
+  const isAttentionMatch = (service: Service) => {
+    if (attentionFilter === 'all') return true
+
+    if (attentionFilter === 'overdue') {
+      if (!service.scheduledDate || !isOpenService(service)) return false
+      return new Date(service.scheduledDate) < startOfToday()
+    }
+
+    if (attentionFilter === 'third-party') {
+      return (service.thirdPartyServices || []).some((item) => item.status !== 'RETORNADO')
+    }
+
+    if (attentionFilter === 'without-checklist') {
+      return (
+        service.type === 'ORDEM_SERVICO' &&
+        isOpenService(service) &&
+        (service.checklistItems || []).length === 0
+      )
+    }
+
+    if (attentionFilter === 'stale') {
+      const date = new Date(service.updatedAt || service.createdAt || '')
+      if (Number.isNaN(date.getTime())) return false
+      const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+
+      return service.type === 'ORDEM_SERVICO' && service.status === 'EM_ANDAMENTO' && days >= 3
+    }
+
     return true
-  })
+  }
+
+  const visibleServices = services
+    .filter((service) => {
+      if (typeFilter === 'budgets') return service.type === 'ORCAMENTO'
+      if (typeFilter === 'orders') return service.type === 'ORDEM_SERVICO'
+      return true
+    })
+    .filter((service) => (statusFilter === 'all' ? true : service.status === statusFilter))
+    .filter(isAttentionMatch)
 
   const stats = {
     total: visibleServices.length,
@@ -174,10 +262,22 @@ export default function ServicesPage() {
 
       <ServiceStats {...stats} />
 
-      <ServiceOperationalAlerts services={services} onFilterChange={setTypeFilter} />
+      <ServiceOperationalAlerts
+        services={services}
+        onFilterChange={(filter) => updateFilters({ type: filter, attention: 'all' })}
+        onAttentionFilterChange={(filter) =>
+          updateFilters({
+            type: filter === 'budgets' ? 'budgets' : 'orders',
+            attention: filter,
+          })
+        }
+      />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={typeFilter} onValueChange={setTypeFilter}>
+        <Tabs
+          value={typeFilter}
+          onValueChange={(value) => updateFilters({ type: value, attention: 'all' })}
+        >
           <TabsList>
             <TabsTrigger value="all">Todos</TabsTrigger>
             <TabsTrigger value="budgets">Orcamentos</TabsTrigger>
@@ -193,6 +293,53 @@ export default function ServicesPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border bg-muted/20 p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: 'all', label: 'Todos os status' },
+            { value: 'PENDENTE', label: 'Pendentes' },
+            { value: 'EM_ANDAMENTO', label: 'Em andamento' },
+            { value: 'CONCLUIDO', label: 'Concluidos' },
+            { value: 'CANCELADO', label: 'Cancelados' },
+          ].map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              variant={statusFilter === option.value ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => updateFilters({ status: option.value })}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: 'all', label: 'Sem filtro operacional' },
+            { value: 'overdue', label: 'Vencidos' },
+            { value: 'third-party', label: 'Terceiros pendentes' },
+            { value: 'without-checklist', label: 'Sem checklist' },
+            { value: 'stale', label: 'Parados 3 dias' },
+          ].map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              variant={attentionFilter === option.value ? 'default' : 'outline'}
+              size="sm"
+              onClick={() =>
+                updateFilters({
+                  attention: option.value,
+                  type: option.value === 'all' ? typeFilter : 'orders',
+                })
+              }
+            >
+              {option.label}
+            </Button>
+          ))}
         </div>
       </div>
 
