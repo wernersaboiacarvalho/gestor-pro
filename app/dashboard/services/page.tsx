@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -33,6 +33,14 @@ export default function ServicesPage() {
   const approveService = useApproveService()
   const { customers, vehicles, mechanics, thirdPartyProviders } = useServiceFormData()
   const { success, error: showError } = useToast()
+
+  useEffect(() => {
+    const type = new URLSearchParams(window.location.search).get('type')
+
+    if (type === 'budgets' || type === 'orders' || type === 'all') {
+      setTypeFilter(type)
+    }
+  }, [])
 
   const visibleServices = services.filter((service) => {
     if (typeFilter === 'budgets') return service.type === 'ORCAMENTO'

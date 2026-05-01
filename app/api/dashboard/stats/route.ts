@@ -29,6 +29,7 @@ export async function GET() {
     lowStockProducts,
     recentServices,
     recentActivities,
+    servicesForAlerts,
     servicesByStatus,
     revenueByMonth,
   ] = await Promise.all([
@@ -85,6 +86,24 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       take: 5,
       include: { user: { select: { name: true } } },
+    }),
+    prisma.service.findMany({
+      where: {
+        tenantId: scopedTenantId,
+        status: { in: ['PENDENTE', 'EM_ANDAMENTO'] },
+      },
+      orderBy: { updatedAt: 'asc' },
+      include: {
+        customer: { select: { name: true } },
+        vehicle: { select: { plate: true, brand: true, model: true } },
+        checklistItems: { select: { id: true, completed: true } },
+        thirdPartyServices: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
     }),
     prisma.service.groupBy({
       by: ['status'],
@@ -254,6 +273,93 @@ export async function GET() {
         ]
       : []
 
+  const startOfToday = new Date(now)
+  startOfToday.setHours(0, 0, 0, 0)
+  const threeDaysAgo = new Date(now)
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+
+  const alertServicePreview = (services: typeof servicesForAlerts) =>
+    services.slice(0, 3).map((service) => ({
+      id: service.id,
+      href: `/dashboard/services/${service.id}`,
+      customerName: service.customer.name,
+      vehicleLabel: service.vehicle
+        ? `${service.vehicle.plate} - ${service.vehicle.brand} ${service.vehicle.model}`
+        : null,
+      description: service.description,
+      status: service.status,
+      totalValue: service.totalValue,
+      updatedAt: service.updatedAt,
+    }))
+
+  const waitingBudgets = servicesForAlerts.filter((service) => service.type === 'ORCAMENTO')
+  const overdueScheduled = servicesForAlerts.filter(
+    (service) => service.scheduledDate && service.scheduledDate < startOfToday
+  )
+  const thirdPartyPending = servicesForAlerts.filter((service) =>
+    service.thirdPartyServices.some((item) => item.status !== 'RETORNADO')
+  )
+  const ordersWithoutChecklist = servicesForAlerts.filter(
+    (service) => service.type === 'ORDEM_SERVICO' && service.checklistItems.length === 0
+  )
+  const staleOrders = servicesForAlerts.filter(
+    (service) => service.type === 'ORDEM_SERVICO' && service.updatedAt <= threeDaysAgo
+  )
+  const waitingBudgetTotal = waitingBudgets.reduce((sum, service) => sum + service.totalValue, 0)
+
+  const operationalAlerts = [
+    {
+      id: 'waiting-budgets',
+      title: 'Orcamentos aguardando aprovacao',
+      description: `${waitingBudgets.length} proposta(s) abertas somando ${waitingBudgetTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.`,
+      severity: waitingBudgets.length >= 5 ? 'high' : 'medium',
+      count: waitingBudgets.length,
+      href: '/dashboard/services',
+      filter: 'budgets',
+      items: alertServicePreview(waitingBudgets),
+    },
+    {
+      id: 'overdue-scheduled',
+      title: 'Agendamentos vencidos',
+      description: 'Servicos abertos com data programada anterior a hoje.',
+      severity: 'high',
+      count: overdueScheduled.length,
+      href: '/dashboard/services',
+      filter: 'orders',
+      items: alertServicePreview(overdueScheduled),
+    },
+    {
+      id: 'third-party-pending',
+      title: 'Terceirizados pendentes',
+      description: 'OS com servicos externos ainda sem retorno para a oficina.',
+      severity: thirdPartyPending.length >= 3 ? 'high' : 'medium',
+      count: thirdPartyPending.length,
+      href: '/dashboard/services',
+      filter: 'orders',
+      items: alertServicePreview(thirdPartyPending),
+    },
+    {
+      id: 'orders-without-checklist',
+      title: 'OS sem checklist',
+      description: 'Ordens abertas que ainda nao tem tarefas de execucao.',
+      severity: 'low',
+      count: ordersWithoutChecklist.length,
+      href: '/dashboard/services',
+      filter: 'orders',
+      items: alertServicePreview(ordersWithoutChecklist),
+    },
+    {
+      id: 'stale-orders',
+      title: 'OS paradas ha 3 dias',
+      description: 'Ordens em aberto sem atualizacao recente.',
+      severity: 'medium',
+      count: staleOrders.length,
+      href: '/dashboard/services',
+      filter: 'orders',
+      items: alertServicePreview(staleOrders),
+    },
+  ].filter((alert) => alert.count > 0)
+
   return NextResponse.json({
     success: true,
     data: {
@@ -283,6 +389,7 @@ export async function GET() {
         servicesByStatus: servicesChartData,
         revenueByMonth: revenueChartData,
       },
+      operationalAlerts,
       recentServices: recentServices.map((service) => ({
         id: service.id,
         description: service.description,

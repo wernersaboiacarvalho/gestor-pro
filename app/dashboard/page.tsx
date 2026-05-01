@@ -34,6 +34,7 @@ import { useDashboardStats } from '@/hooks/use-dashboard-query'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatsCardsSkeleton } from '@/components/ui/card-skeleton'
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist'
+import { OperationalAlertsSummary } from '@/components/dashboard/operational-alerts-summary'
 
 // Helpers
 const statusConfig: Record<
@@ -130,6 +131,8 @@ function DashboardContent() {
       </div>
 
       <OnboardingChecklist onboarding={onboarding} />
+
+      <OperationalAlertsSummary alerts={stats.operationalAlerts || []} />
 
       {/* KPIs linha 1 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -49,6 +49,25 @@ interface DashboardStats {
     servicesByStatus: Array<{ name: string; value: number; color: string }>
     revenueByMonth: Array<{ month: string; revenue: number; count: number }>
   }
+  operationalAlerts: Array<{
+    id: string
+    title: string
+    description: string
+    severity: 'low' | 'medium' | 'high'
+    count: number
+    href: string
+    filter: string
+    items: Array<{
+      id: string
+      href: string
+      customerName: string
+      vehicleLabel: string | null
+      description: string
+      status: string
+      totalValue: number
+      updatedAt: string
+    }>
+  }>
   recentServices: Array<{
     id: string
     description: string
