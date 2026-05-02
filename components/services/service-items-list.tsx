@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Package, Plus, Search, Trash2 } from 'lucide-react'
+import { BadgeCheck, Package, Plus, Search, Trash2, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,10 +27,19 @@ interface ServiceItem {
 
 interface ServiceItemsListProps {
   items: ServiceItem[]
-  onAddItem: () => void
+  onAddItem: (item?: Partial<ServiceItem>) => void
   onUpdateItem: (index: number, field: keyof ServiceItem, value: string | number | null) => void
   onRemoveItem: (index: number) => void
 }
+
+const laborSuggestions: Array<
+  Pick<ServiceItem, 'type' | 'description' | 'quantity' | 'unitPrice'>
+> = [
+  { type: 'LABOR', description: 'Diagnostico tecnico', quantity: 1, unitPrice: 120 },
+  { type: 'LABOR', description: 'Troca de oleo e filtros', quantity: 1, unitPrice: 90 },
+  { type: 'LABOR', description: 'Revisao de freios', quantity: 1, unitPrice: 160 },
+  { type: 'LABOR', description: 'Alinhamento e balanceamento', quantity: 1, unitPrice: 140 },
+]
 
 function productSubtitle(product: Product) {
   const details = [
@@ -87,8 +96,28 @@ function ServiceItemRow({ item, index, onUpdateItem, onRemoveItem }: ServiceItem
     onUpdateItem(index, 'unitPrice', product.price)
   }
 
+  const rowTone =
+    item.type === 'PART'
+      ? item.productId
+        ? 'border-emerald-100 bg-emerald-50/30'
+        : 'border-blue-100 bg-blue-50/20'
+      : 'border-slate-200 bg-slate-50/70'
+
   return (
-    <div className="rounded-md border bg-white p-3 shadow-sm">
+    <div className={`rounded-md border p-3 shadow-sm ${rowTone}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">{item.type === 'PART' ? 'Peca' : 'Mao de obra'}</Badge>
+          {item.productId && (
+            <span className="flex items-center gap-1 text-xs font-medium text-emerald-700">
+              <BadgeCheck className="h-3.5 w-3.5" />
+              Estoque vinculado
+            </span>
+          )}
+        </div>
+        <div className="text-sm font-semibold">{formatCurrency(item.totalPrice)}</div>
+      </div>
+
       <div className="grid grid-cols-12 gap-2">
         <div className="col-span-12 sm:col-span-2">
           <Select value={item.type} onValueChange={handleTypeChange}>
@@ -208,23 +237,80 @@ export function ServiceItemsList({
   onUpdateItem,
   onRemoveItem,
 }: ServiceItemsListProps) {
+  const partsTotal = items
+    .filter((item) => item.type === 'PART')
+    .reduce((sum, item) => sum + Number(item.totalPrice || 0), 0)
+  const laborTotal = items
+    .filter((item) => item.type === 'LABOR')
+    .reduce((sum, item) => sum + Number(item.totalPrice || 0), 0)
+  const linkedProductsCount = items.filter((item) => item.productId).length
+
   return (
-    <div className="space-y-4 rounded-lg border bg-gray-50/30 p-4">
-      <div className="flex items-center justify-between gap-3 border-b pb-2">
-        <h3 className="flex items-center gap-2 font-bold">
-          <Package className="h-4 w-4 text-blue-600" />
-          Pecas & Servicos
-        </h3>
-        <Button type="button" variant="outline" size="sm" onClick={onAddItem}>
-          <Plus className="mr-1 h-3 w-3" />
-          Adicionar item
-        </Button>
+    <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+      <div className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 className="flex items-center gap-2 font-bold">
+            <Package className="h-4 w-4 text-primary" />
+            Pecas e servicos
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Busque pecas do estoque ou adicione mao de obra manualmente.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => onAddItem()}>
+            <Plus className="mr-1 h-3 w-3" />
+            Peca
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onAddItem({ type: 'LABOR' })}
+          >
+            <Wrench className="mr-1 h-3 w-3" />
+            Mao de obra
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-md border bg-background p-3">
+          <div className="text-xs text-muted-foreground">Pecas</div>
+          <div className="font-semibold">{formatCurrency(partsTotal)}</div>
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <div className="text-xs text-muted-foreground">Mao de obra</div>
+          <div className="font-semibold">{formatCurrency(laborTotal)}</div>
+        </div>
+        <div className="rounded-md border bg-background p-3">
+          <div className="text-xs text-muted-foreground">Estoque vinculado</div>
+          <div className="font-semibold">{linkedProductsCount} item(ns)</div>
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-md border bg-background p-3">
+        <div className="text-xs font-medium text-muted-foreground">Atalhos de mao de obra</div>
+        <div className="flex flex-wrap gap-2">
+          {laborSuggestions.map((suggestion) => (
+            <Button
+              key={suggestion.description}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onAddItem(suggestion)}
+            >
+              <Plus className="mr-1 h-3 w-3" />
+              {suggestion.description}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {items.length === 0 && (
-        <p className="py-4 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed bg-background p-6 text-center text-sm text-muted-foreground">
           Nenhum item adicionado ainda.
-        </p>
+        </div>
       )}
 
       <div className="space-y-3">

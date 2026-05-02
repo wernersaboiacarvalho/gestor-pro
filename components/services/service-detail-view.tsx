@@ -226,7 +226,7 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
   const uploadPendingPhotos = async (id: string, photos: PendingServicePhoto[]) => {
     if (photos.length === 0) return
 
-    await Promise.all(photos.map((photo) => uploadServiceAttachment(id, photo.file)))
+    await Promise.all(photos.map((photo) => uploadServiceAttachment(id, photo.file, photo.caption)))
   }
 
   const handleEditSubmit = (data: ServiceFormSubmitData, pendingPhotos: PendingServicePhoto[]) => {

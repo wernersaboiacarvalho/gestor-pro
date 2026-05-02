@@ -1,10 +1,11 @@
 'use client'
 
 import { ChangeEvent, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Camera, ImagePlus, Trash2, UploadCloud } from 'lucide-react'
+import { Camera, ImagePlus, Images, Trash2, UploadCloud } from 'lucide-react'
 import {
   useDeleteServiceAttachment,
   useServiceAttachments,
@@ -57,6 +58,12 @@ async function compressImage(file: File) {
   return new File([blob], `${name}.jpg`, { type: 'image/jpeg' })
 }
 
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function ServicePhotosManager({
   serviceId,
   pendingPhotos,
@@ -84,6 +91,7 @@ export function ServicePhotosManager({
             id: crypto.randomUUID(),
             file: compressed,
             previewUrl: URL.createObjectURL(compressed),
+            caption: '',
           }
         })
       )
@@ -110,58 +118,94 @@ export function ServicePhotosManager({
     onPendingPhotosChange(pendingPhotos.filter((item) => item.id !== photoId))
   }
 
+  const updatePendingCaption = (photoId: string, caption: string) => {
+    onPendingPhotosChange(
+      pendingPhotos.map((photo) => (photo.id === photoId ? { ...photo, caption } : photo))
+    )
+  }
+
   const existingPhotos = attachments.data ?? []
   const isBusy = isPreparing || uploadAttachment.isPending || deleteAttachment.isPending
+  const totalPhotos = existingPhotos.length + pendingPhotos.length
 
   return (
-    <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="space-y-4 rounded-lg border bg-muted/20 p-4">
+      <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Label className="flex items-center gap-2 text-base font-semibold">
-            <Camera className="h-4 w-4" />
-            Fotos do veiculo/servico
+            <Camera className="h-4 w-4 text-primary" />
+            Fotos do veiculo e servico
           </Label>
-          <p className="text-xs text-muted-foreground">
-            As imagens sao reduzidas antes do envio para deixar o PDF leve.
+          <p className="mt-1 text-sm text-muted-foreground">
+            Use a camera do celular ou selecione imagens da galeria. As fotos sao comprimidas antes
+            do envio.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleFiles}
-          />
-          <Input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleFiles}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isBusy}
-            onClick={() => cameraInputRef.current?.click()}
-          >
-            <Camera className="mr-2 h-4 w-4" />
-            Camera
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isBusy}
-            onClick={() => galleryInputRef.current?.click()}
-          >
-            <ImagePlus className="mr-2 h-4 w-4" />
-            Galeria
-          </Button>
+        <Badge variant="outline">{totalPhotos} foto(s)</Badge>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="rounded-md border border-dashed bg-background p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Images className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-semibold">Adicionar registros visuais</div>
+                <div className="text-sm text-muted-foreground">
+                  Ideal para entrada, diagnostico, pecas substituidas e entrega.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFiles}
+              />
+              <Input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFiles}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isBusy}
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                Camera
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isBusy}
+                onClick={() => galleryInputRef.current?.click()}
+              >
+                <ImagePlus className="mr-2 h-4 w-4" />
+                Galeria
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-md border bg-background p-4 text-sm">
+          <div className="font-semibold">Boas praticas</div>
+          <ul className="mt-2 space-y-1 text-muted-foreground">
+            <li>Entrada do veiculo</li>
+            <li>Defeito encontrado</li>
+            <li>Peca substituida</li>
+            <li>Entrega final</li>
+          </ul>
         </div>
       </div>
 
@@ -178,39 +222,71 @@ export function ServicePhotosManager({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {existingPhotos.map((photo) => (
-          <div key={photo.id} className="group relative overflow-hidden rounded-md border bg-white">
-            <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1 h-8 w-8 bg-white/90"
-              disabled={isBusy}
-              onClick={() => deleteAttachment.mutate(photo.id)}
+      {totalPhotos === 0 ? (
+        <div className="rounded-md border border-dashed bg-background p-6 text-center text-sm text-muted-foreground">
+          Nenhuma foto anexada ainda.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {existingPhotos.map((photo) => (
+            <div
+              key={photo.id}
+              className="group relative overflow-hidden rounded-md border bg-white"
             >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        ))}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.url}
+                alt={photo.caption || photo.fileName || 'Foto do servico'}
+                className="aspect-square w-full object-cover"
+              />
+              <div className="border-t p-2 text-xs text-muted-foreground">
+                <div className="truncate">{photo.caption || photo.fileName || 'Foto anexada'}</div>
+                <div>{formatFileSize(photo.size)}</div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1 h-8 w-8 bg-white/90"
+                disabled={isBusy}
+                onClick={() => deleteAttachment.mutate(photo.id)}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
 
-        {pendingPhotos.map((photo) => (
-          <div key={photo.id} className="relative overflow-hidden rounded-md border bg-white">
-            <img src={photo.previewUrl} alt="" className="aspect-square w-full object-cover" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1 h-8 w-8 bg-white/90"
-              disabled={isBusy}
-              onClick={() => removePendingPhoto(photo.id)}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        ))}
-      </div>
-    </div>
+          {pendingPhotos.map((photo) => (
+            <div key={photo.id} className="overflow-hidden rounded-md border bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo.previewUrl} alt="" className="aspect-square w-full object-cover" />
+              <div className="space-y-2 border-t p-2">
+                <Input
+                  value={photo.caption || ''}
+                  placeholder="Legenda da foto"
+                  onChange={(event) => updatePendingCaption(photo.id, event.target.value)}
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {formatFileSize(photo.file.size)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    disabled={isBusy}
+                    onClick={() => removePendingPhoto(photo.id)}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

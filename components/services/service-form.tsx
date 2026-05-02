@@ -289,10 +289,20 @@ export function ServiceForm({
     setPendingPhotos([])
   }, [open, pendingPhotos])
 
-  const handleAddItem = () => {
+  const handleAddItem = (initialItem?: Partial<ServiceItem>) => {
+    const quantity = Number(initialItem?.quantity ?? 1)
+    const unitPrice = Number(initialItem?.unitPrice ?? 0)
+
     setServiceItems([
       ...serviceItems,
-      { type: 'PART', description: '', quantity: 1, unitPrice: 0, totalPrice: 0 },
+      {
+        productId: initialItem?.productId ?? null,
+        type: initialItem?.type ?? 'PART',
+        description: initialItem?.description ?? '',
+        quantity,
+        unitPrice,
+        totalPrice: quantity * unitPrice,
+      },
     ])
   }
 
