@@ -27,6 +27,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Separator } from '@/components/ui/separator'
 import { ServiceChecklist } from '@/components/services/service-checklist'
 import { ServiceForm } from '@/components/services/service-form'
+import { ServicePaymentPanel } from '@/components/services/service-payment-panel'
 import { ServiceThirdPartyPanel } from '@/components/services/service-third-party-panel'
 import { StatusBadge } from '@/components/services/status-badge'
 import { TypeBadge } from '@/components/services/type-badge'
@@ -59,6 +60,8 @@ const activityLabels: Record<string, string> = {
   SERVICE_PUBLIC_LINK_CREATED: 'Link publico gerado',
   SERVICE_ATTACHMENT_ADDED: 'Foto adicionada',
   SERVICE_ATTACHMENT_REMOVED: 'Foto removida',
+  SERVICE_PAYMENT_RECEIVED: 'Recebimento registrado',
+  SERVICE_PAYMENT_SCHEDULED: 'Cobranca pendente registrada',
   SERVICE_CHECKLIST_ITEM_CREATED: 'Tarefa adicionada',
   SERVICE_CHECKLIST_ITEM_UPDATED: 'Tarefa atualizada',
   SERVICE_CHECKLIST_ITEM_COMPLETED: 'Tarefa concluida',
@@ -521,6 +524,8 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
           </Card>
 
           <ServiceChecklist serviceId={service.id} items={checklistItems} />
+
+          <ServicePaymentPanel service={service} />
 
           <Card>
             <CardHeader>

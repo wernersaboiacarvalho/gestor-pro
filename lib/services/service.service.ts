@@ -156,7 +156,15 @@ export class ServiceService {
       })
     }
 
-    return service
+    const transactions = await prisma.transaction.findMany({
+      where: { serviceId, tenantId, type: 'RECEITA' },
+      orderBy: { date: 'desc' },
+    })
+
+    return {
+      ...service,
+      transactions,
+    }
   }
 
   // =============================

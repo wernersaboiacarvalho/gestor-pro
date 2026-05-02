@@ -1,5 +1,7 @@
 // types/service.types.ts
 
+import type { Transaction } from '@/types/transaction'
+
 export interface Customer {
   id: string
   name: string
@@ -111,6 +113,7 @@ export interface Service {
   thirdPartyServices?: ThirdPartyService[]
   attachments?: ServiceAttachment[]
   checklistItems?: ServiceChecklistItem[]
+  transactions?: Transaction[]
   description: string
   status: string
   totalValue: number

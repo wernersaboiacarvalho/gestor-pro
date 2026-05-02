@@ -28,6 +28,16 @@ const thirdPartyStatusLabels: Record<string, string> = {
   RETORNADO: 'Retornado',
 }
 
+const paymentMethodLabels: Record<string, string> = {
+  DINHEIRO: 'Dinheiro',
+  CARTAO_CREDITO: 'Cartao credito',
+  CARTAO_DEBITO: 'Cartao debito',
+  PIX: 'PIX',
+  BOLETO: 'Boleto',
+  TRANSFERENCIA: 'Transferencia',
+  OUTRO: 'Outro',
+}
+
 function formatDate(value: Date | string | null | undefined) {
   if (!value) return '-'
 
@@ -65,7 +75,7 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
     )
   }
 
-  const [tenant, service] = await Promise.all([
+  const [tenant, service, payments] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -98,6 +108,10 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
         serviceMechanics: { include: { mechanic: true } },
       },
     }),
+    prisma.transaction.findMany({
+      where: { serviceId: id, tenantId, type: 'RECEITA' },
+      orderBy: { date: 'desc' },
+    }),
   ])
 
   if (!service || !tenant) {
@@ -123,6 +137,13 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
   const photosForPdf = service.attachments.slice(0, 9)
   const hiddenPhotosCount = Math.max(service.attachments.length - photosForPdf.length, 0)
   const checklistCompleted = service.checklistItems.filter((item) => item.completed).length
+  const receivedTotal = payments
+    .filter((payment) => payment.isPaid)
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+  const pendingTotal = payments
+    .filter((payment) => !payment.isPaid)
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+  const remainingTotal = Math.max(Number(service.totalValue || 0) - receivedTotal, 0)
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
@@ -275,6 +296,18 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
                 <span>Total</span>
                 <span>{formatCurrency(service.totalValue)}</span>
               </div>
+              {payments.length > 0 && (
+                <>
+                  <div className="flex justify-between gap-4 border-t pt-3 text-emerald-700">
+                    <span>Recebido</span>
+                    <span>{formatCurrency(receivedTotal)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4 text-slate-700">
+                    <span>A receber</span>
+                    <span>{formatCurrency(remainingTotal)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         </section>
@@ -395,6 +428,65 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
           </section>
         )}
 
+        {payments.length > 0 && (
+          <section className="border-b p-8">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Recebimentos
+              </h2>
+              <span className="text-xs text-slate-500">
+                Recebido: {formatCurrency(receivedTotal)}
+              </span>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="avoid-break rounded-md border p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Recebido</p>
+                <p className="mt-1 text-lg font-bold text-emerald-700">
+                  {formatCurrency(receivedTotal)}
+                </p>
+              </div>
+              <div className="avoid-break rounded-md border p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Pendente</p>
+                <p className="mt-1 text-lg font-bold text-amber-700">
+                  {formatCurrency(pendingTotal)}
+                </p>
+              </div>
+              <div className="avoid-break rounded-md border p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">A receber</p>
+                <p className="mt-1 text-lg font-bold">{formatCurrency(remainingTotal)}</p>
+              </div>
+            </div>
+
+            <table className="mt-4 w-full border-collapse text-sm">
+              <thead>
+                <tr className="print-muted-bg border text-left text-xs uppercase tracking-wide text-slate-600">
+                  <th className="px-3 py-2">Data</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Forma</th>
+                  <th className="px-3 py-2 text-right">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="avoid-break border-b">
+                    <td className="border-x px-3 py-3">{formatDate(payment.date)}</td>
+                    <td className="border-r px-3 py-3">{payment.isPaid ? 'Pago' : 'Pendente'}</td>
+                    <td className="border-r px-3 py-3">
+                      {payment.paymentMethod
+                        ? paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod
+                        : 'Nao informado'}
+                    </td>
+                    <td className="border-r px-3 py-3 text-right font-semibold">
+                      {formatCurrency(payment.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
         {(service.notes || service.clientApprovalNotes || service.clientApprovalName) && (
           <section className="grid gap-4 border-b p-8 md:grid-cols-2">
             {service.notes && (
@@ -482,6 +574,12 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
                 {documentTitle} #{documentCode}
               </p>
               <p className="text-3xl font-bold">{formatCurrency(service.totalValue)}</p>
+              {payments.length > 0 && (
+                <div className="mt-3 space-y-1 text-sm text-slate-600">
+                  <p>Recebido: {formatCurrency(receivedTotal)}</p>
+                  <p>A receber: {formatCurrency(remainingTotal)}</p>
+                </div>
+              )}
             </div>
           </div>
         </section>

@@ -17,6 +17,7 @@ export interface CreateTransactionDTO {
   isPaid?: boolean
   paymentMethod?: PaymentMethod | null
   serviceId?: string | null
+  reference?: string | null
   notes?: string | null
 }
 
@@ -30,6 +31,7 @@ export interface UpdateTransactionDTO {
   isPaid?: boolean
   paidAt?: string | null
   paymentMethod?: PaymentMethod | null
+  reference?: string | null
   notes?: string | null
 }
 
@@ -177,6 +179,8 @@ export class TransactionService {
   // CRIAR
   // =============================
   static async create(data: CreateTransactionDTO, tenantId: string, userId: string) {
+    const isPaid = data.isPaid ?? true
+
     const transaction = await prisma.transaction.create({
       data: {
         tenantId,
@@ -187,10 +191,11 @@ export class TransactionService {
         amount: data.amount,
         date: data.date ? new Date(data.date) : new Date(),
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        isPaid: data.isPaid ?? true,
-        paidAt: data.isPaid ? new Date() : null,
+        isPaid,
+        paidAt: isPaid ? new Date() : null,
         paymentMethod: data.paymentMethod ?? null,
         serviceId: data.serviceId ?? null,
+        reference: data.reference ?? null,
         notes: data.notes ?? null,
       },
     })
@@ -205,6 +210,7 @@ export class TransactionService {
         type: data.type,
         amount: data.amount,
         category: data.category,
+        serviceId: data.serviceId,
       },
     })
 

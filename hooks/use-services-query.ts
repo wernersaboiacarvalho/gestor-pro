@@ -11,6 +11,7 @@ import type {
   ServiceFormSubmitData,
 } from '@/types/service.types'
 import type { PaginatedResponse } from '@/types/pagination'
+import type { PaymentMethod, Transaction } from '@/types/transaction'
 
 const SERVICES_KEY = 'services'
 
@@ -220,6 +221,33 @@ export function useDeleteService() {
       api.delete<{ success: boolean; serviceId: string }>(`/api/services/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [SERVICES_KEY] })
+    },
+  })
+}
+
+// Recebimentos vinculados a OS/orcamento
+export interface ServicePaymentPayload {
+  amount: number
+  date?: string
+  dueDate?: string | null
+  isPaid?: boolean
+  paymentMethod?: PaymentMethod | null
+  notes?: string | null
+}
+
+export function useCreateServicePayment(serviceId: string | null | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: ServicePaymentPayload) => {
+      if (!serviceId) throw new Error('Documento sem identificador.')
+      return api.post<Transaction>(`/api/services/${serviceId}/payments`, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY, serviceId] })
+      queryClient.invalidateQueries({ queryKey: [SERVICES_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['activities', 'service', serviceId] })
     },
   })
 }
