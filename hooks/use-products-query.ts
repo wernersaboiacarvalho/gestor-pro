@@ -12,12 +12,15 @@ import type {
 
 const PRODUCTS_KEY = 'products'
 
-export function useProducts(params?: {
-  search?: string
-  lowStock?: boolean
-  page?: number
-  limit?: number
-}) {
+export function useProducts(
+  params?: {
+    search?: string
+    lowStock?: boolean
+    page?: number
+    limit?: number
+  },
+  options?: { enabled?: boolean }
+) {
   const searchParams = new URLSearchParams()
   if (params?.search) searchParams.set('search', params.search)
   if (params?.lowStock) searchParams.set('lowStock', 'true')
@@ -30,6 +33,7 @@ export function useProducts(params?: {
   return useQuery({
     queryKey: [PRODUCTS_KEY, params],
     queryFn: () => api.get<PaginatedProductsResponse>(url),
+    enabled: options?.enabled ?? true,
   })
 }
 

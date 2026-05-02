@@ -1,6 +1,7 @@
 // types/service.types.ts
 
 import type { Transaction } from '@/types/transaction'
+import type { Product } from '@/types/product'
 
 export interface Customer {
   id: string
@@ -35,6 +36,8 @@ export interface ThirdPartyProvider {
 
 export interface ServiceItem {
   id?: string
+  productId?: string | null
+  product?: Product | null
   type: 'PART' | 'LABOR'
   description: string
   quantity: number

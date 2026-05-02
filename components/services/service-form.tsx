@@ -60,6 +60,7 @@ interface ThirdPartyProvider {
 }
 
 interface ServiceItem {
+  productId?: string | null
   type: 'PART' | 'LABOR'
   description: string
   quantity: number
@@ -242,24 +243,28 @@ export function ServiceForm({
     ])
   }
 
-  const handleUpdateItem = (index: number, field: keyof ServiceItem, value: string | number) => {
-    const newItems = [...serviceItems]
-    let finalValue = value
+  const handleUpdateItem = (
+    index: number,
+    field: keyof ServiceItem,
+    value: string | number | null
+  ) => {
+    setServiceItems((currentItems) => {
+      const newItems = [...currentItems]
+      let finalValue = value
 
-    if (field === 'quantity' || field === 'unitPrice') {
-      finalValue = value === '' ? 0 : Number(value)
-    }
+      if (field === 'quantity' || field === 'unitPrice') {
+        finalValue = value === '' || value === null ? 0 : Number(value)
+      }
 
-    const item = { ...newItems[index], [field]: finalValue }
+      const item = { ...newItems[index], [field]: finalValue }
 
-    if (field === 'quantity' || field === 'unitPrice') {
-      const qty = field === 'quantity' ? Number(value) : Number(item.quantity)
-      const price = field === 'unitPrice' ? Number(value) : Number(item.unitPrice)
-      item.totalPrice = qty * price
-    }
+      if (field === 'quantity' || field === 'unitPrice') {
+        item.totalPrice = Number(item.quantity) * Number(item.unitPrice)
+      }
 
-    newItems[index] = item as ServiceItem
-    setServiceItems(newItems)
+      newItems[index] = item as ServiceItem
+      return newItems
+    })
   }
 
   const handleRemoveItem = (index: number) => {

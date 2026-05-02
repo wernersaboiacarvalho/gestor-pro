@@ -35,6 +35,7 @@ interface ApprovalMetadata {
 
 interface ServiceItemData {
   type?: 'LABOR' | 'PART'
+  productId?: string | null
   description: string
   quantity: number | string
   unitPrice: number | string
@@ -71,7 +72,7 @@ export interface UpdateServiceDTO {
 const serviceDetailInclude = {
   customer: true,
   vehicle: true,
-  items: true,
+  items: { include: { product: true } },
   attachments: { orderBy: { createdAt: 'desc' as const } },
   checklistItems: {
     orderBy: [
@@ -107,7 +108,7 @@ export class ServiceService {
       include: {
         customer: true,
         vehicle: true,
-        items: true,
+        items: { include: { product: true } },
         checklistItems: true,
         thirdPartyServices: { include: { provider: true } },
         serviceMechanics: { include: { mechanic: true } },
@@ -215,6 +216,7 @@ export class ServiceService {
           create:
             data.items?.map((item) => ({
               type: item.type || 'PART',
+              productId: (item.type || 'PART') === 'PART' ? item.productId || null : null,
               description: item.description,
               quantity: Number(item.quantity) || 1,
               unitPrice: Number(item.unitPrice) || 0,
@@ -348,6 +350,7 @@ export class ServiceService {
           items: {
             create: items.map((item) => ({
               type: item.type || 'PART',
+              productId: (item.type || 'PART') === 'PART' ? item.productId || null : null,
               description: item.description,
               quantity: Number(item.quantity) || 0,
               unitPrice: Number(item.unitPrice) || 0,
@@ -377,7 +380,7 @@ export class ServiceService {
         include: {
           customer: true,
           vehicle: true,
-          items: true,
+          items: { include: { product: true } },
           thirdPartyServices: { include: { provider: true } },
           serviceMechanics: { include: { mechanic: true } },
         },

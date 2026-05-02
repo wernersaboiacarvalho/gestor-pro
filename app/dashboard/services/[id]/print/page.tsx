@@ -97,6 +97,7 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
         vehicle: true,
         items: {
           orderBy: { id: 'asc' },
+          include: { product: true },
         },
         attachments: {
           orderBy: { createdAt: 'asc' },
@@ -342,6 +343,9 @@ export default async function ServicePrintPage({ params }: PrintPageProps) {
                   <tr key={item.id} className="avoid-break border-b">
                     <td className="border-x px-3 py-3 text-xs text-slate-500">
                       {itemTypeLabels[item.type]}
+                      {item.product?.sku ? (
+                        <span className="mt-1 block">SKU {item.product.sku}</span>
+                      ) : null}
                     </td>
                     <td className="border-r px-3 py-3">{item.description}</td>
                     <td className="border-r px-3 py-3 text-center">{item.quantity}</td>

@@ -409,6 +409,7 @@ export function ServiceDetailView({ serviceId }: ServiceDetailViewProps) {
                                 <div className="font-medium">{item.description}</div>
                                 <div className="text-xs text-muted-foreground">
                                   {item.type === 'PART' ? 'Peca' : 'Mao de obra'}
+                                  {item.product?.sku ? ` - SKU ${item.product.sku}` : ''}
                                 </div>
                               </td>
                               <td className="py-3">{item.quantity}</td>
